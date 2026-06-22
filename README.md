@@ -8,6 +8,10 @@ Zone buildings as residential, commercial, or industrial, then watch inhabitants
 
 The simulation runs on hand-traced geodata from actual NP Basiskart tiles, so the streets and building footprints are real.
 
+![Phase 0 simulation — zoned buildings along the airport corridor into Sentrum](phases/phase-0/phase0-simulation.png)
+
+*Phase 0: the airport corridor down to Sentrum, with residential (red), commercial (blue/yellow), and industrial (green) zones active.*
+
 ## How to run
 
 Open `phases/phase-0/longyearbyen-sim.html` in any browser. No server, no build step.
@@ -24,10 +28,11 @@ Open `phases/phase-0/longyearbyen-sim.html` in any browser. No server, no build 
 
 ```
 phases/phase-0/
-├── longyearbyen-sim.html   # main simulation
-├── longyearbyen-draw.html  # hand-drawing tool for geodata
-├── geodata-phase0.json     # 6 roads, ~37 buildings
-└── SPEC.md                 # phase spec snapshot
+├── longyearbyen-sim.html    # main simulation
+├── longyearbyen-draw.html   # hand-drawing tool for geodata
+├── geodata-phase0.json      # 6 roads, ~37 buildings
+├── phase0-simulation.png    # screenshot of the completed Phase 0 prototype
+└── SPEC.md                  # phase spec snapshot
 
 changelog/
 └── CHANGELOG.md
