@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Longyearbyen — Draw Tool</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root {
+    --bg:#1F2326; --bg2:#292E32; --bg3:#33393E;
+    --text:#F2F4F2; --muted:#9BA3A8; --accent:#E8B340;
+    --res:#B5483D; --com:#D4A23A; --ind:#46606B; --pub:#5B8FA8; --road:#888070;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;font-family:-apple-system,"Segoe UI",sans-serif;background:#111;}
+  #app{display:flex;flex-direction:column;height:100vh;}
+
+  #toolbar{
+    background:var(--bg);color:var(--text);
+    padding:7px 12px;display:flex;align-items:center;gap:8px;
+    border-bottom:2px solid var(--bg2);flex-shrink:0;flex-wrap:wrap;
+  }
+  .brand{font-weight:800;font-size:14px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;}
+  .brand span{display:block;font-weight:400;font-size:9px;letter-spacing:2px;color:var(--muted);}
+  .sep{width:1px;height:28px;background:var(--bg2);flex-shrink:0;}
+
+  .btn{
+    background:var(--bg2);color:var(--text);
+    border:2px solid transparent;border-radius:5px;
+    padding:5px 11px;font-size:11.5px;font-weight:600;cursor:pointer;
+    display:flex;align-items:center;gap:5px;white-space:nowrap;
+    transition:border-color .1s,transform .1s;
+  }
+  .btn:hover{transform:translateY(-1px);}
+  .btn.active{border-color:var(--accent);}
+  .btn.red{color:#e07070;} .btn.red:hover{border-color:#e07070;}
+  .btn.green{color:#6ec46e;} .btn.green:hover{border-color:#6ec46e;}
+  .btn i{width:9px;height:9px;border-radius:2px;display:inline-block;flex-shrink:0;}
+
+  select.styled{
+    background:var(--bg2);color:var(--text);
+    border:1px solid var(--bg3);border-radius:5px;
+    padding:5px 8px;font-size:11.5px;cursor:pointer;
+  }
+
+  #hint{
+    background:var(--bg2);color:var(--muted);font-size:11.5px;
+    padding:4px 14px;border-bottom:1px solid #111;flex-shrink:0;min-height:24px;
+    display:flex;align-items:center;gap:10px;
+  }
+  #hint b{color:var(--text);}
+  #pt-count{
+    margin-left:auto;font-family:"SF Mono",Consolas,monospace;
+    font-size:11px;color:var(--accent);font-weight:700;
+    background:var(--bg);padding:2px 8px;border-radius:4px;
+  }
+
+  #map-wrap{position:relative;flex:1;display:flex;overflow:hidden;}
+  #map{position:absolute;inset:0;}
+
+  /* ── RIGHT PANEL ── */
+  #panel{
+    position:absolute;right:10px;top:10px;z-index:800;
+    width:220px;background:var(--bg);border:1px solid var(--bg2);
+    border-radius:9px;box-shadow:0 8px 24px rgba(0,0,0,.6);overflow:hidden;
+  }
+  #panel h3{
+    background:var(--bg2);padding:7px 11px;
+    font-size:10.5px;font-weight:700;letter-spacing:.5px;
+    text-transform:uppercase;color:var(--muted);
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  #shape-list{max-height:320px;overflow-y:auto;}
+  .si{
+    display:flex;align-items:center;gap:7px;
+    padding:5px 9px;border-bottom:1px solid var(--bg2);
+    font-size:11.5px;color:var(--text);cursor:pointer;
+  }
+  .si:hover{background:var(--bg2);}
+  .si.sel{background:var(--bg3);}
+  .si .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+  .si .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .si .tag{font-size:9px;color:var(--muted);background:var(--bg2);padding:1px 4px;border-radius:3px;}
+  .si .del{color:var(--muted);font-size:14px;cursor:pointer;padding:0 2px;line-height:1;}
+  .si .del:hover{color:#e07070;}
+  #panel-foot{padding:8px 10px;border-top:1px solid var(--bg2);}
+
+  /* ── EXPORT BOX ── */
+  #export-box{
+    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    z-index:2000;background:var(--bg);border:1px solid var(--bg2);
+    border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.7);
+    padding:16px;width:560px;max-width:96vw;display:none;
+  }
+  #export-box h3{color:var(--text);font-size:13px;margin-bottom:8px;}
+  #export-box textarea{
+    width:100%;height:220px;background:#111;color:#A8E6CF;
+    border:1px solid var(--bg2);border-radius:6px;padding:10px;
+    font-family:"SF Mono",Consolas,monospace;font-size:11px;resize:vertical;
+  }
+  #export-box .row{display:flex;gap:8px;margin-top:10px;}
+
+  /* snap indicator */
+  #snap-badge{
+    position:absolute;bottom:38px;left:50%;transform:translateX(-50%);
+    background:rgba(232,179,64,.9);color:#111;font-size:10.5px;font-weight:700;
+    padding:3px 10px;border-radius:12px;pointer-events:none;z-index:700;
+    display:none;letter-spacing:.5px;
+  }
+
+  .leaflet-control-attribution{font-size:10px;background:rgba(31,35,38,.8)!important;color:#9BA3A8!important;}
+  .leaflet-control-attribution a{color:var(--accent)!important;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="toolbar">
+    <div class="brand">Longyearbyen<span>draw tool</span></div>
+    <div class="sep"></div>
+
+    <button class="btn" id="btn-building" onclick="setMode('building')">
+      <i style="background:var(--com)"></i>Building <kbd style="opacity:.5;font-size:9px">B</kbd>
+    </button>
+    <button class="btn" id="btn-road" onclick="setMode('road')">
+      <i style="background:var(--road);border-radius:0;height:3px;margin:3px 0"></i>Road <kbd style="opacity:.5;font-size:9px">R</kbd>
+    </button>
+
+    <div class="sep"></div>
+
+    <label style="font-size:11px;color:var(--muted)">Type:</label>
+    <select class="styled" id="type-sel">
+      <option value="residential">Residential</option>
+      <option value="commercial">Commercial</option>
+      <option value="industrial">Industrial</option>
+      <option value="public">Public</option>
+      <option value="unzoned">Unzoned</option>
+    </select>
+
+    <div class="sep"></div>
+
+    <label style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;cursor:pointer">
+      <input type="checkbox" id="snap-cb" checked style="accent-color:var(--accent)">
+      90° snap <kbd style="opacity:.5;font-size:9px">S</kbd>
+    </label>
+
+    <div class="sep"></div>
+
+    <button class="btn green" id="btn-finish" onclick="finishShape()" style="display:none">
+      ✓ Finish <kbd style="opacity:.5;font-size:9px">Enter</kbd>
+    </button>
+    <button class="btn" id="btn-undo" onclick="undoPoint()" style="display:none">
+      ↩ Undo pt <kbd style="opacity:.5;font-size:9px">Z</kbd>
+    </button>
+    <button class="btn red" id="btn-cancel" onclick="cancelDraw()" style="display:none">
+      ✕ Cancel <kbd style="opacity:.5;font-size:9px">Esc</kbd>
+    </button>
+
+    <div class="sep"></div>
+    <button class="btn" onclick="showExport()">⬇ Export</button>
+    <button class="btn" onclick="importPrompt()">⬆ Import</button>
+    <button class="btn red" onclick="clearAll()">🗑</button>
+  </div>
+
+  <div id="hint">
+    <span id="hint-text">Press <b>B</b> for building, <b>R</b> for road, then click the map.</span>
+    <span id="pt-count" style="display:none"></span>
+  </div>
+
+  <div id="map-wrap">
+    <div id="map"></div>
+    <div id="snap-badge">⟂ 90° snap</div>
+
+    <!-- Right panel -->
+    <div id="panel">
+      <h3>Shapes <span id="shape-count" style="color:var(--accent)">0</span></h3>
+      <div id="shape-list"></div>
+      <div id="panel-foot" style="font-size:10.5px;color:var(--muted);line-height:1.5">
+        Click shape to select · <b>Del</b> to delete selected
+      </div>
+    </div>
+
+    <!-- Export -->
+    <div id="export-box">
+      <h3>GeoJSON — paste this into your city builder</h3>
+      <textarea id="export-ta" readonly></textarea>
+      <div class="row">
+        <button class="btn green" onclick="doCopy()">📋 Copy</button>
+        <button class="btn" onclick="document.getElementById('export-box').style.display='none'">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── MAP ──────────────────────────────────────────────────────────────────────
+const map = L.map('map', {
+  center: [78.2227, 15.639],
+  zoom: 16,
+  zoomControl: true,
+  maxZoom: 19,
+  preferCanvas: false,
+});
+
+// NP Basiskart — building footprints visible from zoom 15 up
+const npLayer = L.tileLayer(
+  'https://geodata.npolar.no/arcgis/rest/services/Basisdata/NP_Basiskart_Svalbard_WMTS_3857/MapServer/tile/{z}/{y}/{x}',
+  { attribution: '© <a href="https://npolar.no">Norsk Polarinstitutt</a>', maxNativeZoom: 17, maxZoom: 19, minZoom: 12 }
+);
+
+// OSM fallback — always has tiles at any zoom
+const osmLayer = L.tileLayer(
+  'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  { attribution: '© OpenStreetMap contributors', maxZoom: 19, opacity: 0.35 }
+);
+
+osmLayer.addTo(map);  // OSM underneath for context at any zoom
+npLayer.addTo(map);   // NP on top — the good stuff
+
+// Force Leaflet to recalculate map size after the browser has finished layout
+window.addEventListener('load', () => { map.invalidateSize(); });
+setTimeout(() => { map.invalidateSize(); }, 100);
+
+// ── CONSTANTS ────────────────────────────────────────────────────────────────
+const TYPE_COLOR = {
+  residential:'#B5483D', commercial:'#D4A23A', industrial:'#46606B',
+  public:'#5B8FA8', unzoned:'#A8ACAE', road:'#888070'
+};
+const M_PER_DEG_LAT = 111320;
+
+// ── STATE ────────────────────────────────────────────────────────────────────
+let mode        = null;
+let drawing     = false;
+let pts         = [];       // L.LatLng[] being drawn
+let snapActive  = false;    // last point was snapped
+let mouseLl     = null;
+
+// Preview layers
+let prevLine    = null;
+let prevPoly    = null;
+let firstDot    = null;
+let snapDot     = null;
+
+// Completed shapes
+let shapes      = [];
+let shapeId     = 1;
+let selId       = null;
+
+// ── SNAP ─────────────────────────────────────────────────────────────────────
+// Project a latlng to a 2-D point in metres relative to the first point
+function ll2m(ll, origin) {
+  const cosLat = Math.cos(origin.lat * Math.PI / 180);
+  return {
+    x: (ll.lng - origin.lng) * M_PER_DEG_LAT * cosLat,
+    y: (ll.lat - origin.lat) * M_PER_DEG_LAT
+  };
+}
+function m2ll(m, origin) {
+  const cosLat = Math.cos(origin.lat * Math.PI / 180);
+  return L.latLng(
+    origin.lat + m.y / M_PER_DEG_LAT,
+    origin.lng + m.x / (M_PER_DEG_LAT * cosLat)
+  );
+}
+
+// Snap candidate to 90° relative to the last two points
+function snap90(candidate) {
+  if (pts.length < 2) return { ll: candidate, snapped: false };
+  const prev  = pts[pts.length - 1];
+  const pprev = pts[pts.length - 2];
+  const origin = pprev;
+
+  const a  = ll2m(prev,      origin);
+  const c  = ll2m(candidate, origin);
+  const ac = { x: c.x - a.x, y: c.y - a.y };
+
+  // Direction of the last segment
+  const seg = { x: a.x - 0, y: a.y - 0 }; // pprev→prev in origin space
+  // actually easier: direction = a itself (pprev is origin)
+  const len = Math.sqrt(seg.x*seg.x + seg.y*seg.y);
+  if (len < 0.1) return { ll: candidate, snapped: false };
+
+  const segUnit = { x: seg.x/len, y: seg.y/len };
+  const perpUnit = { x: -segUnit.y, y: segUnit.x };
+
+  // Project ac onto seg and perp
+  const along = ac.x*segUnit.x + ac.y*segUnit.y;
+  const perp  = ac.x*perpUnit.x + ac.y*perpUnit.y;
+
+  // Choose whichever absolute projection is larger → snap to that axis
+  let snapped;
+  if (Math.abs(perp) > Math.abs(along)) {
+    // Snap to perpendicular from prev
+    snapped = { x: a.x + perp*perpUnit.x, y: a.y + perp*perpUnit.y };
+  } else {
+    // Snap to extension of existing segment
+    snapped = { x: a.x + along*segUnit.x, y: a.y + along*segUnit.y };
+  }
+  return { ll: m2ll(snapped, origin), snapped: true };
+}
+
+// ── DRAWING ───────────────────────────────────────────────────────────────────
+function setMode(m) {
+  cancelDraw();
+  mode = m;
+  document.querySelectorAll('.btn[id^="btn-"]').forEach(b => b.classList.remove('active'));
+  const modeBtn = document.getElementById('btn-' + m);
+  if (modeBtn) modeBtn.classList.add('active');
+  map.getContainer().style.cursor = 'crosshair';
+  hint('Click the map to place the first point.');
+}
+
+map.on('click', e => {
+  if (!mode) return;
+  L.DomEvent.stopPropagation(e);
+
+  let addPt = e.latlng;
+  const useSnap = document.getElementById('snap-cb').checked;
+
+  // Check close-polygon (click near first point)
+  if (mode === 'building' && pts.length >= 3) {
+    const fp = map.latLngToContainerPoint(pts[0]);
+    const cp = map.latLngToContainerPoint(e.latlng);
+    if (Math.hypot(fp.x-cp.x, fp.y-cp.y) < 16) { finishShape(); return; }
+  }
+
+  // Apply 90° snap
+  if (useSnap && pts.length >= 2) {
+    const r = snap90(e.latlng);
+    if (r.snapped) { addPt = r.ll; showSnapBadge(); }
+  }
+
+  if (!drawing) {
+    drawing = true;
+    showDrawControls(true);
+  }
+
+  pts.push(addPt);
+  updatePreview();
+  updatePtCount();
+});
+
+map.on('dblclick', e => {
+  if (!drawing) return;
+  L.DomEvent.stopPropagation(e);
+  if (mode === 'road' && pts.length >= 2) finishShape();
+  if (mode === 'building' && pts.length >= 3) finishShape();
+});
+
+map.on('mousemove', e => {
+  mouseLl = e.latlng;
+  if (drawing) updatePreview();
+});
+
+// ── PREVIEW ──────────────────────────────────────────────────────────────────
+function updatePreview() {
+  clearPreview();
+  if (!pts.length) return;
+  const useSnap = document.getElementById('snap-cb').checked;
+  const color = mode === 'road' ? TYPE_COLOR.road : (TYPE_COLOR[document.getElementById('type-sel').value] || '#A8ACAE');
+
+  // Snap the live mouse position
+  let livePt = mouseLl || pts[pts.length-1];
+  if (useSnap && pts.length >= 2 && mouseLl) {
+    const r = snap90(mouseLl);
+    if (r.snapped) livePt = r.ll;
+  }
+
+  const allPts = [...pts, livePt];
+
+  if (mode === 'road') {
+    prevLine = L.polyline(allPts, { color, weight:4, opacity:.75, dashArray:'7,4' }).addTo(map);
+  } else {
+    if (allPts.length >= 2) {
+      prevLine = L.polyline([...allPts, allPts[0]], { color, weight:2, opacity:.9, dashArray:'5,4' }).addTo(map);
+    }
+    if (allPts.length >= 3) {
+      prevPoly = L.polygon(allPts, { color, fillColor:color, fillOpacity:.2, weight:0 }).addTo(map);
+    }
+    // First-point snap target
+    if (pts.length >= 3) {
+      firstDot = L.circleMarker(pts[0], {
+        radius:7, color:'#fff', fillColor:color, fillOpacity:1, weight:2
+      }).addTo(map);
+    }
+  }
+
+  // Live snap dot
+  if (useSnap && pts.length >= 2 && mouseLl) {
+    const r = snap90(mouseLl);
+    if (r.snapped) {
+      snapDot = L.circleMarker(r.ll, {
+        radius:5, color:TYPE_COLOR.road, fillColor:'#fff', fillOpacity:1, weight:2
+      }).addTo(map);
+    }
+  }
+}
+
+function clearPreview() {
+  [prevLine, prevPoly, firstDot, snapDot].forEach(l => { if(l){l.remove();} });
+  prevLine = prevPoly = firstDot = snapDot = null;
+}
+
+// ── FINISH / CANCEL / UNDO ────────────────────────────────────────────────────
+function finishShape() {
+  if (!drawing) return;
+  if (mode === 'building' && pts.length < 3) { hint('Need at least 3 corners!'); return; }
+  if (mode === 'road'     && pts.length < 2) { hint('Need at least 2 points!');  return; }
+
+  const type  = mode === 'road' ? 'road' : document.getElementById('type-sel').value;
+  const color = TYPE_COLOR[type];
+  const id    = 'S' + (shapeId++);
+  const name  = mode === 'road' ? 'Road ' + id
+              : type.charAt(0).toUpperCase() + type.slice(1) + ' ' + id;
+
+  let layer;
+  if (mode === 'road') {
+    layer = L.polyline(pts, { color, weight:5, opacity:.9 });
+  } else {
+    layer = L.polygon(pts, { color, fillColor:color, fillOpacity:.35, weight:2 });
+  }
+  layer.addTo(map);
+  layer.on('click', L.DomEvent.stopPropagation);
+  layer.on('click', () => selectShape(id));
+
+  const shape = {
+    id, name, type, mode,
+    latlngs: pts.map(ll => [ll.lat, ll.lng]),
+    layer, color
+  };
+  shapes.push(shape);
+
+  // Auto-restart in same mode (building workflow: finish one, immediately start next)
+  const prevMode = mode;
+  resetDraw();
+  setMode(prevMode);
+  hint(`<b>${name}</b> saved. Click to start next shape, or pick a different mode.`);
+  renderList();
+}
+
+function undoPoint() {
+  if (!pts.length) return;
+  pts.pop();
+  if (!pts.length) { cancelDraw(); return; }
+  updatePreview();
+  updatePtCount();
+}
+
+function cancelDraw() {
+  clearPreview();
+  drawing = false; pts = [];
+  showDrawControls(false);
+  hint('Press <b>B</b> for building, <b>R</b> for road.');
+  document.getElementById('pt-count').style.display = 'none';
+}
+
+// ── CONTROLS VISIBILITY ───────────────────────────────────────────────────────
+function showDrawControls(on) {
+  ['btn-finish','btn-undo','btn-cancel'].forEach(id => {
+    document.getElementById(id).style.display = on ? '' : 'none';
+  });
+}
+
+function updatePtCount() {
+  const el = document.getElementById('pt-count');
+  el.style.display = pts.length ? '' : 'none';
+  el.textContent = pts.length + (mode==='building' ? ' corners' : ' points');
+}
+
+let snapTimer = null;
+function showSnapBadge() {
+  const b = document.getElementById('snap-badge');
+  b.style.display = 'block';
+  clearTimeout(snapTimer);
+  snapTimer = setTimeout(() => { b.style.display = 'none'; }, 700);
+}
+
+function hint(html) {
+  document.getElementById('hint-text').innerHTML = html;
+}
+
+// ── SHAPE LIST ────────────────────────────────────────────────────────────────
+function renderList() {
+  const list = document.getElementById('shape-list');
+  document.getElementById('shape-count').textContent = shapes.length;
+  if (!shapes.length) {
+    list.innerHTML = '<div style="padding:9px 10px;font-size:11px;color:var(--muted)">Nothing drawn yet.</div>';
+    return;
+  }
+  // Group by type
+  const grouped = {};
+  shapes.forEach(s => { (grouped[s.type] = grouped[s.type]||[]).push(s); });
+  list.innerHTML = Object.entries(grouped).map(([type, arr]) => `
+    <div style="padding:3px 9px;font-size:9.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);background:var(--bg2)">${type} (${arr.length})</div>
+    ${arr.map(s => `
+      <div class="si${selId===s.id?' sel':''}" id="si-${s.id}" onclick="selectShape('${s.id}')">
+        <div class="dot" style="background:${s.color}"></div>
+        <div class="nm">${s.name}</div>
+        <span class="del" onclick="deleteShape('${s.id}',event)">×</span>
+      </div>
+    `).join('')}
+  `).join('');
+}
+
+function selectShape(id) {
+  if (selId) {
+    const prev = shapes.find(s=>s.id===selId);
+    if (prev) { resetStyle(prev); }
+    document.getElementById('si-'+selId)?.classList.remove('sel');
+  }
+  selId = (selId === id) ? null : id;
+  if (selId) {
+    const s = shapes.find(s=>s.id===selId);
+    if (s) {
+      s.layer.setStyle({ weight: s.mode==='road'?8:3, opacity:1 });
+      s.layer.bringToFront();
+      document.getElementById('si-'+selId)?.classList.add('sel');
+    }
+  }
+  renderList();
+}
+
+function resetStyle(s) {
+  s.layer.setStyle(s.mode==='road'
+    ? { weight:5, opacity:.9 }
+    : { weight:2, opacity:1 });
+}
+
+function deleteShape(id, e) {
+  if (e) e.stopPropagation();
+  const idx = shapes.findIndex(s=>s.id===id);
+  if (idx===-1) return;
+  shapes[idx].layer.remove();
+  shapes.splice(idx,1);
+  if (selId===id) selId=null;
+  renderList();
+}
+
+function clearAll() {
+  if (shapes.length && !confirm('Delete all ' + shapes.length + ' shapes?')) return;
+  shapes.forEach(s=>s.layer.remove());
+  shapes=[]; selId=null; cancelDraw(); renderList();
+}
+
+// ── EXPORT / IMPORT ───────────────────────────────────────────────────────────
+function toGeoJSON() {
+  return {
+    type:'FeatureCollection',
+    features: shapes.map(s => ({
+      type:'Feature',
+      properties:{ id:s.id, name:s.name, type:s.type, mode:s.mode },
+      geometry: s.mode==='road'
+        ? { type:'LineString', coordinates: s.latlngs.map(([la,ln])=>[ln,la]) }
+        : { type:'Polygon',    coordinates: [[ ...s.latlngs.map(([la,ln])=>[ln,la]), [s.latlngs[0][1],s.latlngs[0][0]] ]] }
+    }))
+  };
+}
+
+function showExport() {
+  document.getElementById('export-ta').value = JSON.stringify(toGeoJSON(), null, 2);
+  document.getElementById('export-box').style.display = 'block';
+}
+
+function doCopy() {
+  const ta = document.getElementById('export-ta');
+  ta.select(); document.execCommand('copy');
+  const b = event.target; b.textContent='✓ Copied!';
+  setTimeout(()=>{b.textContent='📋 Copy';},1800);
+}
+
+function importPrompt() {
+  const raw = prompt('Paste GeoJSON:');
+  if (!raw) return;
+  try {
+    const gj = JSON.parse(raw);
+    loadGeoJSON(gj);
+  } catch(err) { alert('Invalid GeoJSON: '+err.message); }
+}
+
+function loadGeoJSON(gj) {
+  gj.features.forEach(f => {
+    const p = f.properties;
+    const isRoad = f.geometry.type==='LineString' || p.mode==='road';
+    const type = p.type || (isRoad?'road':'unzoned');
+    const color = TYPE_COLOR[type]||'#A8ACAE';
+    const rawCoords = isRoad ? f.geometry.coordinates : f.geometry.coordinates[0];
+    const latlngs = rawCoords.map(([ln,la])=>[la,ln]);
+    const lls = latlngs.map(([la,ln])=>L.latLng(la,ln));
+    let layer;
+    if (isRoad) { layer = L.polyline(lls,{color,weight:5,opacity:.9}); }
+    else        { layer = L.polygon(lls, {color,fillColor:color,fillOpacity:.35,weight:2}); }
+    layer.addTo(map);
+    const id = 'S'+(shapeId++);
+    layer.on('click', L.DomEvent.stopPropagation);
+    layer.on('click', ()=>selectShape(id));
+    shapes.push({id, name:p.name||id, type, mode:isRoad?'road':'building', latlngs, layer, color});
+  });
+  renderList();
+}
+
+// ── KEYBOARD ─────────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  const tag = document.activeElement.tagName;
+  if (tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT') return;
+  if (e.key==='b'||e.key==='B') { e.preventDefault(); setMode('building'); }
+  if (e.key==='r'||e.key==='R') { e.preventDefault(); setMode('road'); }
+  if (e.key==='Enter')           { e.preventDefault(); if(drawing) finishShape(); }
+  if (e.key==='Escape')          { cancelDraw(); }
+  if ((e.key==='z'||e.key==='Z') && !e.ctrlKey && !e.metaKey) { e.preventDefault(); undoPoint(); }
+  if (e.key==='s'||e.key==='S') {
+    const cb = document.getElementById('snap-cb');
+    cb.checked = !cb.checked;
+    hint('90° snap ' + (cb.checked ? '<b>ON</b>' : 'off'));
+  }
+  if (e.key==='Delete'&&selId) deleteShape(selId, null);
+});
+
+// ── BOOT ─────────────────────────────────────────────────────────────────────
+renderList();
+hint('Press <b>B</b> for building, <b>R</b> for road — then click the map to start tracing.');
+</script>
+</body>
+</html>

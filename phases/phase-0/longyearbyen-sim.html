@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Longyearbyen — City Builder</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root {
+    --bg:#1F2326; --bg2:#292E32; --bg3:#33393E;
+    --text:#F2F4F2; --muted:#9BA3A8; --accent:#E8B340;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;font-family:-apple-system,"Segoe UI",sans-serif;background:#111;}
+  #app{display:flex;flex-direction:column;height:100vh;}
+
+  header{
+    background:var(--bg);color:var(--text);
+    padding:8px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    border-bottom:2px solid var(--bg2);flex-shrink:0;position:relative;z-index:1000;
+  }
+  .brand{font-weight:800;font-size:15px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;}
+  .brand span{display:block;font-weight:400;font-size:9px;letter-spacing:2px;color:var(--muted);}
+  .sep{width:1px;height:28px;background:var(--bg2);flex-shrink:0;}
+
+  .btn{
+    background:var(--bg2);color:var(--text);border:2px solid transparent;
+    border-radius:5px;padding:5px 12px;font-size:11.5px;font-weight:600;cursor:pointer;
+    display:flex;align-items:center;gap:5px;white-space:nowrap;transition:border-color .1s,transform .1s;
+  }
+  .btn:hover{transform:translateY(-1px);}
+  .btn.active{border-color:var(--accent);}
+  .btn i{width:9px;height:9px;border-radius:2px;display:inline-block;flex-shrink:0;}
+
+  .day-lbl{
+    font-family:"SF Mono",Consolas,monospace;font-size:11.5px;
+    background:var(--bg2);color:var(--text);padding:5px 10px;
+    border-radius:5px;min-width:56px;text-align:center;
+  }
+  .spd{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);}
+  .spd input{width:70px;accent-color:var(--accent);}
+
+  .stats{
+    margin-left:auto;display:flex;gap:12px;flex-wrap:wrap;
+    font-family:"SF Mono",Consolas,monospace;font-size:11.5px;
+  }
+  .stat{display:flex;align-items:center;gap:5px;color:var(--text);}
+  .stat i{width:8px;height:8px;border-radius:50%;}
+  .stat.muted{color:var(--muted);}
+  .stat.cap{color:var(--accent);font-weight:700;padding-left:10px;border-left:1px solid var(--bg2);}
+
+  #map-wrap{position:relative;flex:1;overflow:hidden;}
+  #map{position:absolute;inset:0;}
+
+  /* Night overlay */
+  #night{position:absolute;inset:0;pointer-events:none;z-index:400;background:rgba(8,14,32,0);}
+
+  /* Inspector */
+  #insp{
+    position:absolute;z-index:1000;width:210px;
+    background:var(--bg);color:var(--text);
+    border:1px solid var(--bg2);border-radius:8px;
+    box-shadow:0 8px 24px rgba(0,0,0,.55);
+    padding:11px 13px;font-size:12px;display:none;
+  }
+  .it{display:flex;justify-content:space-between;align-items:center;
+      font-weight:700;font-size:10.5px;letter-spacing:.4px;text-transform:uppercase;margin-bottom:7px;}
+  .ic{background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:0;}
+  .ic:hover{color:var(--text);}
+  .ib.muted{color:var(--muted);font-style:italic;line-height:1.5;font-size:11.5px;}
+  .ir{display:flex;justify-content:space-between;padding:2px 0;}
+  .ir span{color:var(--muted);}
+
+  footer{
+    background:var(--bg);color:var(--muted);font-size:11px;
+    text-align:center;padding:6px;border-top:2px solid var(--bg2);flex-shrink:0;
+  }
+  footer b{color:var(--text);}
+
+  .leaflet-control-attribution{font-size:10px;background:rgba(31,35,38,.8)!important;color:#9BA3A8!important;}
+  .leaflet-control-attribution a{color:var(--accent)!important;}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">Longyearbyen<span>city builder</span></div>
+    <div class="sep"></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap" id="tools">
+      <button class="btn active" data-zone="unzoned"><i style="background:#A8ACAE"></i>Clear</button>
+      <button class="btn" data-zone="residential"><i style="background:#B5483D"></i>Residential</button>
+      <button class="btn" data-zone="commercial"><i style="background:#D4A23A"></i>Commercial</button>
+      <button class="btn" data-zone="industrial"><i style="background:#46606B"></i>Industrial</button>
+      <button class="btn" data-zone="inspect">🔍 Inspect</button>
+    </div>
+    <div class="sep"></div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span class="day-lbl" id="dayLbl">Day 0</span>
+      <span class="day-lbl" id="clkLbl">07:00</span>
+      <button class="btn" id="playBtn">▶ Play</button>
+      <label class="spd">Speed <input type="range" id="spdSlider" min="1" max="10" value="4"></label>
+    </div>
+    <div class="stats" id="stats">
+      <span class="stat"><i style="background:#B5483D"></i>Res 0</span>
+      <span class="stat"><i style="background:#D4A23A"></i>Com 0</span>
+      <span class="stat"><i style="background:#46606B"></i>Ind 0</span>
+      <span class="stat cap">Pop 0 / 2800</span>
+    </div>
+  </header>
+
+  <div id="map-wrap">
+    <div id="map"></div>
+    <div id="night"></div>
+    <div id="insp"></div>
+  </div>
+
+  <footer>
+    Click a plot to zone it · <b>🔍 Inspect</b> for details · <b>▶ Play</b> starts the simulation
+  </footer>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// MAP
+// ═══════════════════════════════════════════════════════════════
+const map = L.map('map', { center:[78.228,15.62], zoom:14, maxZoom:19 });
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  { attribution:'© OpenStreetMap', maxZoom:19, opacity:0.3 }).addTo(map);
+
+L.tileLayer(
+  'https://geodata.npolar.no/arcgis/rest/services/Basisdata/NP_Basiskart_Svalbard_WMTS_3857/MapServer/tile/{z}/{y}/{x}',
+  { attribution:'© <a href="https://npolar.no">Norsk Polarinstitutt</a>', maxNativeZoom:17, maxZoom:19, minZoom:12 }
+).addTo(map);
+
+window.addEventListener('load', () => map.invalidateSize());
+setTimeout(() => map.invalidateSize(), 100);
+
+// SVG overlay for agents
+const svgLayer = L.svg({ padding:0.5 }).addTo(map);
+const svgEl = svgLayer._container;
+const gAgents = document.createElementNS('http://www.w3.org/2000/svg','g');
+svgEl.appendChild(gAgents);
+
+// ═══════════════════════════════════════════════════════════════
+// GEO DATA — from user's drawn GeoJSON
+// ═══════════════════════════════════════════════════════════════
+const GEOJSON = {"type":"FeatureCollection","features":[{"type":"Feature","properties":{"id":"S1","name":"Road S1","type":"road","mode":"road"},"geometry":{"type":"LineString","coordinates":[[15.501708984375002,78.2469738169897],[15.510163307189943,78.24567125115534],[15.515141487121584,78.24515543071634],[15.522694587707521,78.243835178449],[15.523595809936525,78.24353788293917],[15.538058280944826,78.23864018442745],[15.544838905334474,78.23674178551974],[15.564622879028322,78.23299659241394],[15.57814121246338,78.23065962654091],[15.589685440063478,78.22918018695106],[15.594062805175783,78.22842726564767],[15.599738359451296,78.22749699207418],[15.603590011596681,78.2270241664322],[15.618953704833986,78.22605437748898],[15.623642206192018,78.22559244129633],[15.630197525024414,78.22494219751722],[15.637943744659426,78.22407952992263],[15.640690326690676,78.22379925902092],[15.646505355834963,78.22327154361611]]}},{"type":"Feature","properties":{"id":"S2","name":"Road S2","type":"road","mode":"road"},"geometry":{"type":"LineString","coordinates":[[15.597200989723207,78.22937935295931],[15.593515634536745,78.22852193060126]]}},{"type":"Feature","properties":{"id":"S3","name":"Road S3","type":"road","mode":"road"},"geometry":{"type":"LineString","coordinates":[[15.597238540649416,78.22937716433992],[15.599813461303713,78.22893943239572],[15.599459409713747,78.22882780818193],[15.604008436203005,78.22815585214029],[15.602957010269167,78.22784722122023],[15.607162714004518,78.22738535437487],[15.614748001098635,78.22689501172832],[15.618556737899782,78.22652724152982],[15.619168281555178,78.22633021712154],[15.618932247161867,78.2260456205709]]}},{"type":"Feature","properties":{"id":"S28","name":"Road S28","type":"road","mode":"road"},"geometry":{"type":"LineString","coordinates":[[15.622247457504274,78.22573912439302],[15.622419118881227,78.22583107407232],[15.624983310699465,78.22559900923473],[15.625938177108766,78.22555741223063],[15.62660336494446,78.2256624991195],[15.62707543373108,78.22555522291063],[15.628502368927004,78.22556398018828],[15.630015134811403,78.22553332968837],[15.631152391433718,78.22542605231926],[15.63028335571289,78.22494876581318]]}},{"type":"Feature","properties":{"id":"S38","name":"Road S38","type":"road","mode":"road"},"geometry":{"type":"LineString","coordinates":[[15.633400082588198,78.22460064114898],[15.634526610374452,78.2250746574546],[15.637031793594362,78.22494986052884],[15.63956916332245,78.22468055745658],[15.638152956962587,78.22407515074035]]}},{"type":"Feature","properties":{"id":"S39","name":"Road S39","type":"road","mode":"road"},"geometry":{"type":"LineString","coordinates":[[15.63583552837372,78.22533409952163],[15.636661648750307,78.22533191016069],[15.639928579330446,78.22545998710146],[15.640416741371157,78.22513267663393],[15.64033091068268,78.22493672393446],[15.63959062099457,78.22469259959358]]}},{"type":"Feature","properties":{"id":"S4","name":"Residential S4","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.60137987136841,78.22842507685372],[15.600661039352419,78.2282434055587],[15.60276657342911,78.22792547414102],[15.603461265563967,78.22810113092775],[15.60137987136841,78.22842507685372]]]}},{"type":"Feature","properties":{"id":"S6","name":"Residential S6","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.603557825088503,78.22753420440868],[15.602973103523256,78.2273098341629],[15.60464680194855,78.22712157880173],[15.605236887931826,78.22734595258473],[15.603557825088503,78.22753420440868]]]}},{"type":"Feature","properties":{"id":"S7","name":"Residential S7","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.605585575103762,78.22733391312293],[15.605167150497438,78.22708436518133],[15.606030821800232,78.22701869380361],[15.606476068496706,78.22726605411121],[15.605585575103762,78.22733391312293]]]}},{"type":"Feature","properties":{"id":"S8","name":"Residential S8","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.606937408447267,78.22723431347333],[15.606551170349123,78.2269519275327],[15.608149766921999,78.22685779740186],[15.608557462692263,78.22714018556843],[15.606937408447267,78.22723431347333]]]}},{"type":"Feature","properties":{"id":"S9","name":"Residential S9","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.608493089675905,78.2268490410729],[15.608814954757692,78.22710516104232],[15.609909296035768,78.22705262406052],[15.609437227249147,78.22678336840104],[15.608493089675905,78.2268490410729]]]}},{"type":"Feature","properties":{"id":"S10","name":"Residential S10","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.609893202781679,78.22690650436452],[15.609718859195711,78.22674670100211],[15.611271858215334,78.22666953491424],[15.611451566219332,78.22682550840702],[15.609893202781679,78.22690650436452]]]}},{"type":"Feature","properties":{"id":"S11","name":"Residential S11","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.61221867799759,78.22681894114314],[15.612014830112459,78.226666798519],[15.615040361881258,78.2264933097801],[15.61524957418442,78.22663998181238],[15.615252256393434,78.22665147469401],[15.61221867799759,78.22681894114314]]]}},{"type":"Feature","properties":{"id":"S12","name":"Residential S12","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.616134703159334,78.22658853734943],[15.615928173065187,78.2264560942018],[15.616601407527925,78.22640847998399],[15.616797208786013,78.22654475465326],[15.616134703159334,78.22658853734943]]]}},{"type":"Feature","properties":{"id":"S13","name":"Residential S13","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.617457032203676,78.22648455318388],[15.61736047267914,78.22638768290973],[15.617685019969942,78.22636250745563],[15.617811083793642,78.22647032370132],[15.617457032203676,78.22648455318388]]]}},{"type":"Feature","properties":{"id":"S14","name":"Residential S14","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.619736909866335,78.22636633850641],[15.619444549083711,78.22620214951306],[15.619763731956484,78.22617806827088],[15.620056092739107,78.22634389947716],[15.619736909866335,78.22636633850641]]]}},{"type":"Feature","properties":{"id":"S15","name":"Residential S15","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.620337724685669,78.22626618348899],[15.620284080505373,78.22623717668773],[15.620428919792177,78.22622841990369],[15.620487928390505,78.22625906861971],[15.620337724685669,78.22626618348899]]]}},{"type":"Feature","properties":{"id":"S16","name":"Residential S16","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.623277425765993,78.22618682509184],[15.622762441635134,78.22587814327701],[15.623690485954286,78.22580042425786],[15.624216198921205,78.22612443260242],[15.623277425765993,78.22618682509184]]]}},{"type":"Feature","properties":{"id":"S17","name":"Residential S17","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.624071359634401,78.22584420968298],[15.623926520347597,78.22583271602444],[15.6238728761673,78.22578728859904],[15.623931884765627,78.22576156455861],[15.624138414859774,78.22574733421459],[15.624267160892488,78.22576867972428],[15.624304711818697,78.2258037081703],[15.62422424554825,78.2258365472452],[15.624071359634401,78.22584420968298]]]}},{"type":"Feature","properties":{"id":"S18","name":"Residential S18","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.625530481338503,78.22641559476422],[15.624393224716188,78.22569314928789],[15.625970363616945,78.22559025198274],[15.627064704895021,78.22631270368352],[15.625530481338503,78.22641559476422]]]}},{"type":"Feature","properties":{"id":"S19","name":"Residential S19","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.627493858337404,78.22611348651802],[15.626742839813234,78.22568439210494],[15.627794265747072,78.22560557716947],[15.628521144390108,78.22605218826007],[15.627493858337404,78.22611348651802]]]}},{"type":"Feature","properties":{"id":"S20","name":"Residential S20","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.6291139125824,78.2258923734652],[15.628641843795778,78.22562637560574],[15.629451870918276,78.22556398018828],[15.629956126213076,78.22583326334177],[15.6291139125824,78.2258923734652]]]}},{"type":"Feature","properties":{"id":"S21","name":"Residential S21","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.614587068557741,78.2261550815853],[15.614297389984133,78.2260062143601],[15.615649223327638,78.22588799494757],[15.615992546081545,78.22603248518176],[15.614587068557741,78.2261550815853]]]}},{"type":"Feature","properties":{"id":"S22","name":"Residential S22","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.617322921752931,78.2256624991195],[15.61709761619568,78.22553770833605],[15.617719888687136,78.22547421778786],[15.617998838424684,78.22559900923473],[15.617322921752931,78.2256624991195]]]}},{"type":"Feature","properties":{"id":"S23","name":"Residential S23","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.62386751174927,78.22539978016363],[15.62358856201172,78.22527717600641],[15.62437176704407,78.22521368407321],[15.624631941318514,78.2253357415421],[15.62386751174927,78.22539978016363]]]}},{"type":"Feature","properties":{"id":"S24","name":"Residential S24","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.62610983848572,78.22525090352329],[15.625745058059694,78.22509983562365],[15.626254677772524,78.2250440056989],[15.626635551452638,78.22519616899775],[15.62610983848572,78.22525090352329]]]}},{"type":"Feature","properties":{"id":"S25","name":"Residential S25","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.627488493919374,78.2250111644448],[15.627016425132753,78.22488089324729],[15.628534555435182,78.2246477152031],[15.62834143638611,78.22457546192757],[15.628684759140016,78.22451744004138],[15.628936886787416,78.22459626215776],[15.630310177803041,78.22438825822587],[15.630776882171633,78.2245229138163],[15.627488493919374,78.2250111644448]]]}},{"type":"Feature","properties":{"id":"S26","name":"Residential S26","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.63182294368744,78.22450594510596],[15.631283819675447,78.22429848698889],[15.632142126560213,78.22418955635013],[15.632225275039675,78.2242180207335],[15.632670521736147,78.2241649236559],[15.63256859779358,78.22413481696064],[15.633923113346102,78.22396840767613],[15.634564161300661,78.22417477673969],[15.63182294368744,78.22450594510596]]]}},{"type":"Feature","properties":{"id":"S27","name":"Residential S27","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.634663403034212,78.22414740704244],[15.63421279191971,78.22398920896347],[15.634872615337374,78.22390162435084],[15.635355412960054,78.22406912936215],[15.634663403034212,78.22414740704244]]]}},{"type":"Feature","properties":{"id":"S29","name":"Residential S29","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.6318336725235,78.225350519716],[15.631302595138552,78.2251107826371],[15.631865859031679,78.22505385805752],[15.632434487342836,78.22529906969822],[15.6318336725235,78.225350519716]]]}},{"type":"Feature","properties":{"id":"S30","name":"Residential S30","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.635154247283937,78.22472325225111],[15.634773373603823,78.22458421992366],[15.636307597160341,78.22439373205997],[15.636677742004396,78.2245349561122],[15.635154247283937,78.22472325225111]]]}},{"type":"Feature","properties":{"id":"S31","name":"Residential S31","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.634682178497316,78.22492468204364],[15.63457489013672,78.22484038846773],[15.635921359062197,78.22476266269523],[15.636028647422792,78.22484914626955],[15.634682178497316,78.22492468204364]]]}},{"type":"Feature","properties":{"id":"S32","name":"Residential S32","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.636704564094545,78.22489074574045],[15.636489987373354,78.22474186275481],[15.637611150741579,78.22467070479004],[15.63782572746277,78.22482396757202],[15.636704564094545,78.22489074574045]]]}},{"type":"Feature","properties":{"id":"S33","name":"Residential S33","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.634644627571108,78.22532205803142],[15.634456872940065,78.22517099103182],[15.63633441925049,78.22506589981812],[15.636527538299562,78.22522353629188],[15.634644627571108,78.22532205803142]]]}},{"type":"Feature","properties":{"id":"S34","name":"Residential S34","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.63710689544678,78.22519616899775],[15.636919140815737,78.22504510040581],[15.638721585273744,78.22496956539328],[15.638861060142519,78.22510968793621],[15.63710689544678,78.22519616899775]]]}},{"type":"Feature","properties":{"id":"S35","name":"Residential S35","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.638584792613985,78.2247029996112],[15.638289749622347,78.22460283064399],[15.63895493745804,78.22452510332553],[15.639231204986574,78.22462910455272],[15.638584792613985,78.2247029996112]]]}},{"type":"Feature","properties":{"id":"S36","name":"Residential S36","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.63784718513489,78.22462472557196],[15.637587010860445,78.22453386135854],[15.637758672237398,78.22451251364184],[15.638032257556917,78.22460556751216],[15.63784718513489,78.22462472557196]]]}},{"type":"Feature","properties":{"id":"S37","name":"Residential S37","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.638517737388613,78.22452838758866],[15.638246834278108,78.22443150144679],[15.638533830642702,78.22438990037635],[15.638826191425325,78.22449609229535],[15.638517737388613,78.22452838758866]]]}},{"type":"Feature","properties":{"id":"S41","name":"Residential S41","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.635755062103273,78.22549392178722],[15.635787248611452,78.2253844547128],[15.636074244976045,78.22538719140188],[15.636047422885897,78.22549884778196],[15.635755062103273,78.22549392178722]]]}},{"type":"Feature","properties":{"id":"S42","name":"Residential S42","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.636058151721956,78.22553332968837],[15.63608229160309,78.22538171802307],[15.636382699012758,78.22538226536109],[15.63635051250458,78.22553497168143],[15.636058151721956,78.22553332968837]]]}},{"type":"Feature","properties":{"id":"S43","name":"Residential S43","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.636543631553652,78.22554591829606],[15.636519491672518,78.2254534190866],[15.637423396110536,78.22544411439277],[15.637426078319551,78.22553606634337],[15.636543631553652,78.22554591829606]]]}},{"type":"Feature","properties":{"id":"S44","name":"Residential S44","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.637514591217043,78.22553770833605],[15.63747972249985,78.22540689554481],[15.637745261192324,78.22540142217503],[15.637766718864443,78.22553387701942],[15.637514591217043,78.22553770833605]]]}},{"type":"Feature","properties":{"id":"S5","name":"Residential S5","type":"residential","mode":"building"},"geometry":{"type":"Polygon","coordinates":[[[15.60137987136841,78.22842507685372],[15.600661039352419,78.2282434055587],[15.60276657342911,78.22792547414102],[15.603461265563967,78.22810113092775],[15.60137987136841,78.22842507685372]]]}}]};
+
+// ═══════════════════════════════════════════════════════════════
+// PARSE FEATURES INTO PLOTS + ROAD LINES
+// ═══════════════════════════════════════════════════════════════
+const rawRoads  = [];
+const rawPlots  = [];
+
+GEOJSON.features.forEach(f => {
+  if (f.properties.mode === 'road') {
+    rawRoads.push(f.geometry.coordinates.map(([lng,lat]) => ({ lat, lng })));
+  } else {
+    // deduplicate by coordinate fingerprint
+    const key = JSON.stringify(f.geometry.coordinates[0]);
+    if (!rawPlots.find(p => p._key === key)) {
+      rawPlots.push({
+        id:   f.properties.id,
+        name: f.properties.name,
+        // GeoJSON coords are [lng, lat]
+        coords: f.geometry.coordinates[0].map(([lng,lat]) => [lat, lng]),
+        _key: key,
+        zone: 'unzoned', level:1, satisfaction:0,
+        dataReady:false, inventory:0,
+        residents:[], workers:[],
+        upStreak:0, downStreak:0,
+        // centroid
+        get cx(){ return this.coords.reduce((s,c)=>s+c[0],0)/this.coords.length; },
+        get cy(){ return this.coords.reduce((s,c)=>s+c[1],0)/this.coords.length; },
+      });
+    }
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// ROAD GRAPH — sample each road polyline into nodes every ~30m,
+// then connect adjacent samples and detect intersections.
+// ═══════════════════════════════════════════════════════════════
+const M_LAT = 111320;
+function mPerLng(lat){ return 111320 * Math.cos(lat * Math.PI/180); }
+function distM(a, b){
+  const dy=(b.lat-a.lat)*M_LAT, dx=(b.lng-a.lng)*mPerLng(a.lat);
+  return Math.sqrt(dx*dx+dy*dy);
+}
+
+// Build a flat list of nodes and edges from the road polylines
+const roadNodes  = {};   // key -> { lat, lng, id }
+const roadEdges  = [];   // [idA, idB, distM]
+let   _nodeSeq   = 0;
+
+function nodeKey(lat, lng){ return lat.toFixed(6)+','+lng.toFixed(6); }
+
+function getOrMakeNode(lat, lng){
+  const k = nodeKey(lat, lng);
+  if (!roadNodes[k]){
+    roadNodes[k] = { id:'N'+(++_nodeSeq), lat, lng };
+  }
+  return roadNodes[k];
+}
+
+rawRoads.forEach(pts => {
+  // Resample at ~30 m intervals
+  const sampled = [pts[0]];
+  for (let i=1;i<pts.length;i++){
+    const prev = sampled[sampled.length-1], next = pts[i];
+    const d = distM(prev, next);
+    const steps = Math.max(1, Math.round(d/30));
+    for (let s=1;s<=steps;s++){
+      sampled.push({
+        lat: prev.lat + (next.lat-prev.lat)*s/steps,
+        lng: prev.lng + (next.lng-prev.lng)*s/steps
+      });
+    }
+  }
+  // Register each sample as a node and link consecutive ones
+  let prevNode = null;
+  sampled.forEach(pt => {
+    const node = getOrMakeNode(pt.lat, pt.lng);
+    if (prevNode && prevNode.id !== node.id){
+      const d = distM(prevNode, node);
+      roadEdges.push([prevNode.id, node.id, d]);
+    }
+    prevNode = node;
+  });
+});
+
+// Airport — register as a proper road node (first point of S1, already exists).
+const AIRPORT_LL = rawRoads[0][0];
+const airportNode = getOrMakeNode(AIRPORT_LL.lat, AIRPORT_LL.lng);
+const airportPseudo = {
+  id:'airport', cx: AIRPORT_LL.lat, cy: AIRPORT_LL.lng,
+  accessNode: airportNode.id
+};
+
+// Build nodeList/adj/nodeById AFTER all getOrMakeNode calls (roads + airport).
+const nodeList = Object.values(roadNodes);
+const adj = {};
+nodeList.forEach(n => { adj[n.id] = []; });
+roadEdges.forEach(([a,b,d]) => {
+  adj[a].push({to:b, d});
+  adj[b].push({to:a, d});
+});
+const nodeById = {};
+nodeList.forEach(n => { nodeById[n.id] = n; });
+
+// Dijkstra — returns { dist, prev } maps
+function dijkstra(startId){
+  const dist={}, prev={};
+  nodeList.forEach(n => { dist[n.id]=Infinity; });
+  dist[startId]=0;
+  const rem = new Set(nodeList.map(n=>n.id));
+  while(rem.size){
+    let u=null, best=Infinity;
+    rem.forEach(id=>{ if(dist[id]<best){best=dist[id];u=id;} });
+    if(u===null||dist[u]===Infinity) break;
+    rem.delete(u);
+    (adj[u]||[]).forEach(e=>{
+      const alt=dist[u]+e.d;
+      if(alt<dist[e.to]){ dist[e.to]=alt; prev[e.to]=u; }
+    });
+  }
+  return {dist, prev};
+}
+
+function tracePath(prev, startId, endId){
+  const path=[endId]; let cur=endId;
+  while(cur!==startId){
+    cur=prev[cur];
+    if(cur===undefined) return null;
+    path.unshift(cur);
+  }
+  return path;
+}
+
+// Each plot's access node = nearest road node
+const plotById = {};
+rawPlots.forEach(p => {
+  let best=null, bestD=Infinity;
+  nodeList.forEach(n=>{
+    const d=distM({lat:p.cx,lng:p.cy},{lat:n.lat,lng:n.lng});
+    if(d<bestD){bestD=d;best=n;}
+  });
+  p.accessNode = best ? best.id : null;
+  plotById[p.id] = p;
+});
+
+// Cache Dijkstra from each unique access node (lazy)
+const _djCache = {};
+function getDj(nodeId){
+  if(!_djCache[nodeId]) _djCache[nodeId] = dijkstra(nodeId);
+  return _djCache[nodeId];
+}
+
+function plotDistM(p1, p2){
+  if(!p1.accessNode||!p2.accessNode) return Infinity;
+  return getDj(p1.accessNode).dist[p2.accessNode] ?? Infinity;
+}
+
+function buildWaypoints(fromPlot, toPlot){
+  if(!fromPlot.accessNode||!toPlot.accessNode)
+    return [{lat:fromPlot.cx,lng:fromPlot.cy},{lat:toPlot.cx,lng:toPlot.cy}];
+  const {prev} = getDj(fromPlot.accessNode);
+  const path = tracePath(prev, fromPlot.accessNode, toPlot.accessNode);
+  if(!path) return [{lat:fromPlot.cx,lng:fromPlot.cy},{lat:toPlot.cx,lng:toPlot.cy}];
+  const pts = [{lat:fromPlot.cx,lng:fromPlot.cy}];
+  path.forEach(nid => {
+    const n = nodeById[nid];  // fast lookup, no O(n) key scan
+    if(n) pts.push({lat:n.lat,lng:n.lng});
+  });
+  pts.push({lat:toPlot.cx,lng:toPlot.cy});
+  return pts;
+}
+
+function pathLenM(pts){
+  let t=0;
+  for(let i=1;i<pts.length;i++) t+=distM(pts[i-1],pts[i]);
+  return t;
+}
+function pointAt(pts,frac){
+  if(!pts||!pts.length) return null;
+  const total=pathLenM(pts); let target=total*Math.max(0,Math.min(1,frac));
+  for(let i=1;i<pts.length;i++){
+    const seg=distM(pts[i-1],pts[i]);
+    if(target<=seg||i===pts.length-1){
+      const f=seg>0?Math.min(1,target/seg):0;
+      return {lat:pts[i-1].lat+(pts[i].lat-pts[i-1].lat)*f, lng:pts[i-1].lng+(pts[i].lng-pts[i-1].lng)*f};
+    }
+    target-=seg;
+  }
+  return pts[pts.length-1];
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DRAW ROADS ON MAP
+// ═══════════════════════════════════════════════════════════════
+rawRoads.forEach(pts => {
+  L.polyline(pts.map(p=>[p.lat,p.lng]), { color:'#5A5248', weight:4, opacity:0.7 }).addTo(map);
+});
+
+// ═══════════════════════════════════════════════════════════════
+// DRAW PLOTS ON MAP — as Leaflet polygons (clickable)
+// ═══════════════════════════════════════════════════════════════
+const ZONE_COLOR = {
+  unzoned:'#A8ACAE', residential:'#B5483D', commercial:'#D4A23A', industrial:'#46606B'
+};
+const zones = {};
+
+function plotFill(p){
+  const z=zones[p.id]||'unzoned';
+  if(z==='unzoned') return '#C8A96A';
+  const base=ZONE_COLOR[z];
+  return shadeHex(base, -(p.level-1)*0.15);
+}
+function plotStroke(p){
+  const z=zones[p.id]||'unzoned';
+  if(z==='unzoned') return {color:'rgba(0,0,0,0.25)',w:1};
+  if(p.satisfaction>=70) return {color:'#E8B340',w:2.5};
+  if(p.satisfaction<=30) return {color:'#C23B3B',w:2.5};
+  return {color:'rgba(0,0,0,0.3)',w:1.5};
+}
+function shadeHex(hex,frac){
+  const f=parseInt(hex.slice(1),16),t=frac<0?0:255,p=Math.abs(frac);
+  const R=f>>16,G=(f>>8)&0xFF,B=f&0xFF;
+  return '#'+(0x1000000+Math.round((t-R)*p+R)*0x10000+Math.round((t-G)*p+G)*0x100+Math.round((t-B)*p+B)).toString(16).slice(1);
+}
+
+const plotLayers = {};
+rawPlots.forEach(p => {
+  const latlngs = p.coords.map(([la,ln])=>[la,ln]);
+  const s = plotStroke(p);
+  const layer = L.polygon(latlngs, {
+    color: s.color, weight: s.w,
+    fillColor: plotFill(p), fillOpacity: 0.75,
+    interactive: true
+  }).addTo(map);
+  layer.on('click', L.DomEvent.stopPropagation);
+  layer.on('click', () => handlePlotClick(p));
+  plotLayers[p.id] = layer;
+});
+
+function refreshPlotStyle(p){
+  const layer = plotLayers[p.id]; if(!layer) return;
+  const s = plotStroke(p);
+  layer.setStyle({ color:s.color, weight:s.w, fillColor:plotFill(p), fillOpacity:0.75 });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ECONOMY
+// ═══════════════════════════════════════════════════════════════
+const CAPACITY = { residential:[8,16,28], commercial:[16,30,50], industrial:[18,34,56] };
+function capacityOf(p){ const z=zones[p.id]||'unzoned'; return z==='unzoned'?0:CAPACITY[z][p.level-1]; }
+const ROAD_REACH_M=15000, POLLUTION_REACH_M=400;
+function inReach(p1,p2){ return plotDistM(p1,p2)<=ROAD_REACH_M; }
+function stockCap(p){ return capacityOf(p)*2; }
+const UPT=70, DWT=30, STREAK=4;
+function applyStreak(p,s){
+  if(s>=UPT){p.upStreak=(p.upStreak||0)+1;p.downStreak=0;if(p.upStreak>=STREAK&&p.level<3){p.level++;p.upStreak=0;}}
+  else if(s<=DWT){p.downStreak=(p.downStreak||0)+1;p.upStreak=0;if(p.downStreak>=STREAK&&p.level>1){p.level--;p.downStreak=0;}}
+  else{p.upStreak=0;p.downStreak=0;}
+}
+function weightedSum(zf,fp,reach){
+  let t=0;
+  rawPlots.forEach(q=>{if((zones[q.id]||'unzoned')!==zf)return;const w=Math.max(0,1-plotDistM(fp,q)/reach);if(w>0)t+=capacityOf(q)*w;});
+  return t;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LIFE EVENTS — set false to disable all evening/night flavour
+// ═══════════════════════════════════════════════════════════════
+const LIFE_EVENTS = true;
+
+// ═══════════════════════════════════════════════════════════════
+// AGENTS
+// ═══════════════════════════════════════════════════════════════
+const agents=new Map(); let nextAid=1;
+const SHOP_CHANCE=0.65;
+
+function mkSched(){
+  const se=0.22+Math.random()*0.12, twe=se+0.045+Math.random()*0.03,
+        we=twe+0.20+Math.random()*0.16, tse=we+0.035+Math.random()*0.025,
+        spe=tse+0.03+Math.random()*0.02, the=spe+0.04+Math.random()*0.03;
+  return {sleepEnd:se,toWorkEnd:twe,workEnd:we,toShopEnd:tse,shopEnd:spe,toHomeEnd:the};
+}
+function mkAgent(homeId){
+  const id='a'+(nextAid++);
+  agents.set(id,{id,homeId,jobId:null,shopId:null,visible:false,
+    isNew:true,       // on arrival day: walk airport→home, then rest
+    daysInCity:0,     // 0 = arrived today, routine starts at 1+
+    arrivalTime:simTime, // simTime when this agent was born — walk starts here
+    legPhase:null,legPts:null,legLen:0,schedule:mkSched(),
+    shopsToday:false, // no shopping on arrival day
+    jLat:(Math.random()-.5)*0.00003,jLng:(Math.random()-.5)*0.00005,
+    iWanted:0,iBought:0,
+    // Evening life (assigned each day in runDay if LIFE_EVENTS)
+    lingers:false, lingerEnd:0,           // linger outside home after toHome
+    eveningWalk:false, ewStart:0, ewEnd:0, ewPts:null, // short road walk
+    socialVisit:false, svStart:0, svEnd:0, svTarget:null, // visit neighbour
+  });
+  return agents.get(id);
+}
+function layOff(id){
+  const a=agents.get(id);if(!a||!a.jobId)return;
+  const j=plotById[a.jobId];if(j)j.workers=j.workers.filter(w=>w!==id);a.jobId=null;
+}
+function evict(id){
+  const a=agents.get(id);if(!a)return;
+  if(a.jobId)layOff(id);
+  const h=plotById[a.homeId];if(h)h.residents=h.residents.filter(r=>r!==id);
+  agents.delete(id);
+}
+function trim(p){
+  const z=zones[p.id]||'unzoned';
+  if(z==='residential'){const cap=capacityOf(p);while(p.residents.length>cap){const id=p.residents.pop();const a=agents.get(id);if(a){if(a.jobId){const j=plotById[a.jobId];if(j)j.workers=j.workers.filter(w=>w!==id);}agents.delete(id);}}}
+  else if(z==='commercial'||z==='industrial'){const cap=capacityOf(p);while(p.workers.length>cap){const id=p.workers.pop();const a=agents.get(id);if(a)a.jobId=null;}}
+}
+
+const ARRIVE=15, VIS_CAP=150;
+let visIds=[], newToday=[];
+
+function refreshVis(){
+  visIds.forEach(id=>{const a=agents.get(id);if(a){a.visible=false;a.legPhase=null;a.legPts=null;}});
+  const all=Array.from(agents.keys()), pri=newToday.slice(0,VIS_CAP);
+  const pool=all.filter(id=>!pri.includes(id));
+  for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
+  const chosen=pri.concat(pool).slice(0,VIS_CAP);
+  chosen.forEach(id=>{const a=agents.get(id);if(a){a.visible=true;a.legPhase=null;a.legPts=null;}});
+  visIds=chosen;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SIMULATION
+// ═══════════════════════════════════════════════════════════════
+let day=0;
+function runDay(){
+  day++;
+  rawPlots.forEach(p=>{if((zones[p.id]||'unzoned')!=='unzoned')trim(p);});
+  // Age all existing agents; new arrivals start at daysInCity=0 (set in mkAgent)
+  agents.forEach(a=>{ if(!a.isNew) a.daysInCity++; });
+
+  // Roll shopping intent only for settled residents
+  agents.forEach(a=>{ if(a.daysInCity>0) a.shopsToday=Math.random()<SHOP_CHANCE; });
+
+  newToday=[];let left=ARRIVE;
+  for(const p of rawPlots){
+    if(left<=0)break;if((zones[p.id]||'unzoned')!=='residential')continue;
+    const cap=capacityOf(p);
+    while(p.residents.length<cap&&left>0){const a=mkAgent(p.id);p.residents.push(a.id);newToday.push(a.id);left--;}
+  }
+  // Mark new agents as no longer "isNew" so daysInCity will increment next day
+  newToday.forEach(id=>{const a=agents.get(id);if(a)a.isNew=false;});
+
+  // Job assignment: only for settled agents (daysInCity >= 1)
+  agents.forEach(a=>{
+    if(a.daysInCity<1)return;
+    if(a.jobId)return;const h=plotById[a.homeId];if(!h)return;
+    let best=null,bestD=Infinity;
+    rawPlots.forEach(p=>{const z=zones[p.id]||'unzoned';if(z!=='commercial'&&z!=='industrial')return;if(p.workers.length>=capacityOf(p))return;if(!inReach(h,p))return;const d=plotDistM(h,p);if(d<bestD){bestD=d;best=p;}});
+    if(best){best.workers.push(a.id);a.jobId=best.id;}
+  });
+
+  // Shop assignment: only for settled agents
+  agents.forEach(a=>{
+    if(a.daysInCity<1){a.shopId=null;return;}
+    const h=plotById[a.homeId];if(!h){a.shopId=null;return;}
+    let best=null,bestD=Infinity;
+    rawPlots.forEach(p=>{if((zones[p.id]||'unzoned')!=='commercial')return;if(!inReach(h,p))return;const d=plotDistM(h,p);if(d<bestD){bestD=d;best=p;}});
+    a.shopId=best?best.id:null;
+  });
+
+  rawPlots.forEach(p=>{const z=zones[p.id]||'unzoned';if(z==='commercial'||z==='industrial'){const cap=capacityOf(p);p.workforceRatio=cap>0?p.workers.length/cap:0;}});
+
+  rawPlots.forEach(p=>{
+    if((zones[p.id]||'unzoned')!=='industrial')return;
+    const max=capacityOf(p),prod=0.2+0.8*((p.satisfaction||0)/100);
+    p.producedToday=max*prod*p.workforceRatio;
+    p.inventory=Math.min(stockCap(p),(p.inventory||0)+p.producedToday);
+  });
+
+  rawPlots.forEach(p=>{if((zones[p.id]||'unzoned')==='commercial')p.restockedToday=0;});
+  rawPlots.forEach(p=>{if((zones[p.id]||'unzoned')==='industrial')p.soldToday=0;});
+  rawPlots.forEach(c=>{
+    if((zones[c.id]||'unzoned')!=='commercial')return;
+    const sc=stockCap(c),room=sc-(c.inventory||0);if(room<=0)return;
+    const pr=0.2+0.8*((c.satisfaction||0)/100);let want=Math.min(room,sc*pr*c.workforceRatio);if(want<=0)return;
+    rawPlots.forEach(ind=>{if(want<=0)return;if((zones[ind.id]||'unzoned')!=='industrial')return;if(!inReach(c,ind))return;const tr=Math.min(ind.inventory||0,want);if(tr>0){ind.inventory-=tr;ind.soldToday=(ind.soldToday||0)+tr;c.inventory=(c.inventory||0)+tr;c.restockedToday=(c.restockedToday||0)+tr;want-=tr;}});
+  });
+
+  rawPlots.forEach(p=>{if((zones[p.id]||'unzoned')==='commercial')p.soldToday=0;});
+  rawPlots.forEach(p=>{if((zones[p.id]||'unzoned')==='residential')p.boughtToday=0;});
+  agents.forEach(a=>{
+    const h=plotById[a.homeId];if(!h){a.iWanted=0;a.iBought=0;return;}
+    const tier=(h.satisfaction||0)>=80?3:((h.satisfaction||0)>=50?2:1);a.iWanted=tier;
+    let bought=0;const shop=a.shopId?plotById[a.shopId]:null;
+    if(shop&&(zones[shop.id]||'unzoned')==='commercial'){bought=Math.min(shop.inventory||0,tier);if(bought>0){shop.inventory-=bought;shop.soldToday=(shop.soldToday||0)+bought;}}
+    a.iBought=bought;h.boughtToday=(h.boughtToday||0)+bought;
+  });
+
+  rawPlots.forEach(p=>{
+    const z=zones[p.id]||'unzoned';
+    if(z==='commercial'){
+      // Satisfaction requires BOTH staff AND actual sales.
+      // Full staff with zero sales = 0 satisfaction (empty shelves).
+      const sc=stockCap(p);
+      const saleFrac=sc>0?Math.min(1,(p.soldToday||0)/sc):0;
+      const s=Math.max(0,Math.min(100,p.workforceRatio*saleFrac*100));
+      p.satisfaction=s;p.dataReady=true;applyStreak(p,s);
+    }
+    else if(z==='industrial'){
+      // Industry: workforce drives production, sales validate output.
+      const max=capacityOf(p);
+      const saleFrac=max>0?Math.min(1,(p.soldToday||0)/max):0;
+      const s=Math.max(0,Math.min(100,p.workforceRatio*40+saleFrac*60));
+      p.satisfaction=s;p.dataReady=true;applyStreak(p,s);
+    }
+  });
+  rawPlots.forEach(p=>{
+    if((zones[p.id]||'unzoned')!=='residential')return;
+    const res=p.residents.map(id=>agents.get(id)).filter(Boolean);
+    let emp=0,fill=0;
+    res.forEach(a=>{if(a.jobId)emp++;fill+=a.iWanted>0?a.iBought/a.iWanted:1;});
+    const n=res.length,er=n>0?emp/n:0,af=n>0?fill/n:0;
+    const pol=weightedSum('industrial',p,POLLUTION_REACH_M);
+    const s=Math.max(0,Math.min(100,15+er*45+af*45-pol*0.25));
+    p.satisfaction=s;p.dataReady=true;applyStreak(p,s);
+  });
+
+  rawPlots.forEach(p=>refreshPlotStyle(p));
+
+  // ── LIFE EVENTS: assign evening behaviours for settled agents ──
+  if(LIFE_EVENTS){
+    agents.forEach(a=>{
+      // Reset each day
+      a.lingers=false; a.eveningWalk=false; a.socialVisit=false;
+      if(a.daysInCity<1) return;
+      const h=plotById[a.homeId]; if(!h) return;
+      const s=a.schedule;
+      const homeTime=s.toHomeEnd; // when they normally go inside
+
+      // 1. LINGERER: 40% idle outside home 20–60 sim-min after toHome
+      if(Math.random()<0.40){
+        a.lingers=true;
+        a.lingerEnd=homeTime+(0.014+Math.random()*0.028); // ~20–60 min
+      }
+
+      // 2. EVENING WALK: 60% take a walk along nearest road at ~18:00–22:00
+      if(Math.random()<0.60){
+        const s1pts=rawRoads[0];
+        let bestIdx=0,bestD=Infinity;
+        s1pts.forEach((pt,i)=>{const d=distM(pt,{lat:h.cx,lng:h.cy});if(d<bestD){bestD=d;bestIdx=i;}});
+        // Walk forward or backward up to 12 nodes
+        const goForward=Math.random()<0.5;
+        const stride=Math.floor(4+Math.random()*8);
+        const endIdx=goForward
+          ? Math.min(s1pts.length-1, bestIdx+stride)
+          : Math.max(0, bestIdx-stride);
+        if(endIdx!==bestIdx){
+          const slice=goForward
+            ? s1pts.slice(bestIdx,endIdx+1)
+            : s1pts.slice(endIdx,bestIdx+1).reverse();
+          const outPts=slice.map(p=>({lat:p.lat,lng:p.lng}));
+          const backPts=[...outPts].reverse();
+          a.ewPts=[...outPts,...backPts.slice(1)];
+          const ewStart=0.72+Math.random()*0.14; // ~17:17–20:45
+          const ewLen=pathLenM(a.ewPts);
+          const ewDur=Math.min(0.12,ewLen/WALK);
+          a.eveningWalk=true;
+          a.ewStart=ewStart;
+          a.ewEnd=ewStart+ewDur;
+        }
+      }
+
+      // 3. SOCIAL VISIT: 45% visit a residential neighbour within 600m
+      if(Math.random()<0.45){
+        let nearPlot=null,nearD=Infinity;
+        rawPlots.forEach(q=>{
+          if(q.id===h.id||(zones[q.id]||'unzoned')!=='residential') return;
+          const d=distM({lat:h.cx,lng:h.cy},{lat:q.cx,lng:q.cy});
+          if(d<600&&d<nearD){nearD=d;nearPlot=q;}
+        });
+        if(nearPlot){
+          const svStart=0.78+Math.random()*0.12; // ~18:43–21:35
+          const svDur=0.04+Math.random()*0.04;   // ~58–115 min visit
+          a.socialVisit=true;
+          a.svStart=svStart;
+          a.svEnd=svStart+svDur+0.025; // +travel back
+          a.svTarget=nearPlot;
+        }
+      }
+    });
+  }
+
+  refreshVis();
+  updateStats();
+  if(inspId){const p=rawPlots.find(pl=>pl.id===inspId);if(p)openInsp(p);}
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AGENT ANIMATION
+// ═══════════════════════════════════════════════════════════════
+const WALK=400;
+function phase(a,t){
+  const s=a.schedule;
+  if(t<s.sleepEnd)return'sleep';if(t<s.toWorkEnd)return'toWork';if(t<s.workEnd)return'working';
+  if(!a.shopsToday)return t<s.toHomeEnd?'toHome':'evening';
+  if(t<s.toShopEnd)return'toShop';if(t<s.shopEnd)return'shopping';
+  if(t<s.toHomeEnd)return'toHome';return'evening';
+}
+function legDur(len,win){return win<=0?0:Math.min(win,len/WALK);}
+
+// Agent color logic:
+// toWork / working / toHome-from-work → destination/origin zone color
+// toShop / shopping / toHome-from-shop → residential color (they're residents)
+// sleep (arriving) → residential color
+// evening / no movement → residential color
+function agentColor(a, ph){
+  const workZone = a.jobId ? (zones[a.jobId]||'unzoned') : null;
+  if(ph==='toWork') return workZone ? ZONE_COLOR[workZone] : ZONE_COLOR.residential;
+  if(ph==='working') return workZone ? ZONE_COLOR[workZone] : ZONE_COLOR.residential;
+  if(ph==='toHome'){
+    // Coming back from work (no shopping) → work zone color fading home
+    if(!a.shopsToday && workZone) return ZONE_COLOR[workZone];
+    // Coming back from shop → residential
+    return ZONE_COLOR.residential;
+  }
+  // toShop, shopping, sleep-arrival, evening → residential
+  return ZONE_COLOR.residential;
+}
+
+function resolvePos(a,t){
+  const h=plotById[a.homeId];if(!h)return null;
+
+  // ── ARRIVAL DAY: walk S1 from airport, exit at nearest S1 node to home ──
+  if(a.daysInCity===0){
+    if(a.legPhase!=='arriving'){
+      a.legPhase='arriving';
+      // Build arrival path: all S1 points up to the one closest to home, then straight to home centroid
+      const s1pts = rawRoads[0]; // S1 is the first road (airport→sentrum)
+      let bestIdx=0, bestD=Infinity;
+      s1pts.forEach((pt,i)=>{
+        const d=distM(pt,{lat:h.cx,lng:h.cy});
+        if(d<bestD){bestD=d;bestIdx=i;}
+      });
+      const pts = s1pts.slice(0, bestIdx+1).map(p=>({lat:p.lat,lng:p.lng}));
+      pts.push({lat:h.cx,lng:h.cy});
+      a.legPts=pts;
+      a.legLen=pathLenM(a.legPts);
+    }
+    const remaining=1.0-a.arrivalTime;
+    const walkDur=Math.min(remaining, a.legLen/WALK);
+    const elapsed=t-a.arrivalTime;
+    if(elapsed<0||elapsed>=walkDur) return null; // not yet born or already inside
+    const pos=pointAt(a.legPts, walkDur>0 ? elapsed/walkDur : 1);
+    return {lat:pos.lat+a.jLat,lng:pos.lng+a.jLng,color:ZONE_COLOR.residential};
+  }
+
+  // ── SETTLED AGENT: normal daily routine ──
+  const w=a.jobId?plotById[a.jobId]:h;
+  const sh=a.shopId?plotById[a.shopId]:w;
+  const s=a.schedule,ph=phase(a,t);
+  const hasJob=!!a.jobId,shops=a.shopsToday;
+  const origin=shops?sh:w,hadReason=shops||hasJob;
+
+  if(ph!==a.legPhase){
+    a.legPhase=ph;
+    if(ph==='toWork'&&hasJob)a.legPts=buildWaypoints(h,w);
+    else if(ph==='toShop'&&shops)a.legPts=buildWaypoints(w,sh);
+    else if(ph==='toHome'&&hadReason)a.legPts=buildWaypoints(origin,h);
+    else a.legPts=null;
+    a.legLen=a.legPts?pathLenM(a.legPts):0;
+  }
+
+  let pos=null;
+
+  // Phases where agent is INSIDE a building → check life events before hiding
+  if(ph==='sleep'||ph==='working'||ph==='shopping') return null;
+
+  if(ph==='evening'||ph==='toHome'){
+    // toHome movement
+    if(ph==='toHome'&&hadReason){
+      const ws=shops?s.shopEnd:s.workEnd;
+      const dur=legDur(a.legLen,s.toHomeEnd-ws);
+      pos=pointAt(a.legPts,dur>0?(t-ws)/dur:1);
+    }
+
+    if(LIFE_EVENTS){
+      // Still outside lingering?
+      if(a.lingers&&t<a.lingerEnd){
+        return {lat:h.cx+a.jLat,lng:h.cy+a.jLng,color:ZONE_COLOR.residential};
+      }
+      // Evening walk?
+      if(a.eveningWalk&&t>=a.ewStart&&t<=a.ewEnd&&a.ewPts){
+        const frac=(t-a.ewStart)/(a.ewEnd-a.ewStart);
+        const wp=pointAt(a.ewPts,frac);
+        if(wp) return {lat:wp.lat+a.jLat,lng:wp.lng+a.jLng,color:ZONE_COLOR.residential};
+      }
+      // Social visit?
+      if(a.socialVisit&&a.svTarget&&t>=a.svStart&&t<=a.svEnd){
+        const half=(a.svStart+a.svEnd)/2;
+        if(t<half){
+          // walking there (straight line, it's nearby)
+          const frac=(t-a.svStart)/(half-a.svStart);
+          return {
+            lat:h.cx+(a.svTarget.cx-h.cx)*frac+a.jLat,
+            lng:h.cy+(a.svTarget.cy-h.cy)*frac+a.jLng,
+            color:ZONE_COLOR.residential
+          };
+        } else {
+          // at neighbour or walking back
+          const frac=(t-half)/(a.svEnd-half);
+          if(frac<0.4){
+            // sitting inside neighbour's building — hidden
+            return null;
+          }
+          return {
+            lat:a.svTarget.cx+(h.cx-a.svTarget.cx)*((frac-0.4)/0.6)+a.jLat,
+            lng:a.svTarget.cy+(h.cy-a.svTarget.cy)*((frac-0.4)/0.6)+a.jLng,
+            color:ZONE_COLOR.residential
+          };
+        }
+      }
+    }
+
+    if(ph==='evening') return null; // inside home
+  }
+
+  if(ph==='toWork'&&hasJob){const dur=legDur(a.legLen,s.toWorkEnd-s.sleepEnd);pos=pointAt(a.legPts,dur>0?(t-s.sleepEnd)/dur:1);}
+  else if(ph==='toShop'&&shops){const dur=legDur(a.legLen,s.toShopEnd-s.workEnd);pos=pointAt(a.legPts,dur>0?(t-s.workEnd)/dur:1);}
+
+  if(!pos)return null;
+  return {lat:pos.lat+a.jLat,lng:pos.lng+a.jLng,color:agentColor(a,ph)};
+}
+
+function drawAgents(){
+  while(gAgents.firstChild)gAgents.removeChild(gAgents.firstChild);
+
+  visIds.forEach(id=>{
+    const a=agents.get(id);if(!a||!a.visible)return;
+    const pos=resolvePos(a,simTime);if(!pos)return;
+    const pt=map.latLngToLayerPoint([pos.lat,pos.lng]);
+    const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx',pt.x);c.setAttribute('cy',pt.y);
+    c.setAttribute('r','3');c.setAttribute('fill',pos.color||ZONE_COLOR.residential);
+    c.style.pointerEvents='none';
+    gAgents.appendChild(c);
+  });
+}
+map.on('move zoom viewreset',()=>{ if(!paused) drawAgents(); });
+
+// ═══════════════════════════════════════════════════════════════
+// STATS
+// ═══════════════════════════════════════════════════════════════
+function updateStats(){
+  const ct={unzoned:0,residential:0,commercial:0,industrial:0};
+  const ss={residential:0,commercial:0,industrial:0};
+  let pop=0,jobs=0,emp=0;
+  rawPlots.forEach(p=>{const z=zones[p.id]||'unzoned';ct[z]++;
+    if(z==='residential'){pop+=p.residents.length;ss.residential+=p.satisfaction;}
+    if(z==='commercial'){jobs+=capacityOf(p);ss.commercial+=p.satisfaction;}
+    if(z==='industrial'){jobs+=capacityOf(p);ss.industrial+=p.satisfaction;}
+  });
+  agents.forEach(a=>{if(a.jobId)emp++;});
+  const avg=(s,n)=>n>0?Math.round(s/n):0;
+  document.getElementById('stats').innerHTML=`
+    <span class="stat"><i style="background:#B5483D"></i>Res ${ct.residential} · ${avg(ss.residential,ct.residential)}%</span>
+    <span class="stat"><i style="background:#D4A23A"></i>Com ${ct.commercial} · ${avg(ss.commercial,ct.commercial)}%</span>
+    <span class="stat"><i style="background:#46606B"></i>Ind ${ct.industrial} · ${avg(ss.industrial,ct.industrial)}%</span>
+    <span class="stat muted"><i style="background:#A8ACAE"></i>Unzoned ${ct.unzoned}</span>
+    <span class="stat cap">Pop ${pop} / 2800 · Jobs ${emp}/${jobs}</span>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INSPECTOR
+// ═══════════════════════════════════════════════════════════════
+const inspEl=document.getElementById('insp');
+let inspId=null;
+
+function statusW(s){return s>=UPT?'Thriving':s<=DWT?'Struggling':'Stable';}
+function inspHtml(p){
+  const z=zones[p.id]||'unzoned';
+  const cl=`<button class="ic" id="inspClose">&times;</button>`;
+  if(z==='unzoned')return`<div class="it">${p.name||p.id}${cl}</div><div class="ib muted">Unzoned — click a zone tool then this plot.</div>`;
+  const hd=`<div class="it">${p.name||p.id} · ${z.charAt(0).toUpperCase()+z.slice(1)} Lv${p.level}${cl}</div>`;
+  if(!p.dataReady)return hd+`<div class="ib muted">Zoned today — data available tomorrow.</div>`;
+  let body=`<div class="ir"><span>Satisfaction</span><b>${Math.round(p.satisfaction)}% · ${statusW(p.satisfaction)}</b></div>`;
+  if(z==='residential'){const res=p.residents.map(id=>agents.get(id)).filter(Boolean),ep=res.filter(a=>a.jobId).length;body+=`<div class="ir"><span>Inhabitants</span><b>${res.length}/${capacityOf(p)}</b></div><div class="ir"><span>Employed</span><b>${ep}/${res.length}</b></div><div class="ir"><span>Bought today</span><b>${Math.round(p.boughtToday||0)}</b></div>`;}
+  else if(z==='commercial'){body+=`<div class="ir"><span>Workers</span><b>${p.workers.length}/${capacityOf(p)}</b></div><div class="ir"><span>Inventory</span><b>${Math.round(p.inventory||0)}/${stockCap(p)}</b></div><div class="ir"><span>Sold today</span><b>${Math.round(p.soldToday||0)}</b></div>`;}
+  else if(z==='industrial'){body+=`<div class="ir"><span>Workers</span><b>${p.workers.length}/${capacityOf(p)}</b></div><div class="ir"><span>Produced</span><b>${Math.round(p.producedToday||0)}</b></div><div class="ir"><span>Sold</span><b>${Math.round(p.soldToday||0)}</b></div>`;}
+  return hd+`<div class="ib">${body}</div>`;
+}
+function closeInsp(){inspEl.style.display='none';inspId=null;}
+function openInsp(p){
+  inspId=p.id; inspEl.innerHTML=inspHtml(p);
+  document.getElementById('inspClose').onclick=closeInsp;
+  const pt=map.latLngToContainerPoint([p.cx,p.cy]);
+  let left=pt.x+14,top=pt.y-80;
+  const wrap=document.getElementById('map-wrap');
+  if(left+220>wrap.clientWidth)left=pt.x-230;
+  top=Math.max(8,Math.min(wrap.clientHeight-180,top));
+  inspEl.style.left=left+'px';inspEl.style.top=top+'px';inspEl.style.display='block';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INTERACTION
+// ═══════════════════════════════════════════════════════════════
+let currentTool='unzoned';
+
+function handlePlotClick(p){
+  if(currentTool==='inspect'){openInsp(p);return;}
+  const prev=zones[p.id]||'unzoned';
+  if(prev===currentTool)return;
+  if(prev==='residential')p.residents.slice().forEach(id=>evict(id));
+  else if(prev==='commercial'||prev==='industrial')p.workers.slice().forEach(id=>layOff(id));
+  zones[p.id]=currentTool;
+  p.level=1;p.satisfaction=0;p.upStreak=0;p.downStreak=0;p.dataReady=false;p.inventory=0;p.residents=[];p.workers=[];
+  refreshPlotStyle(p);
+  updateStats();
+}
+
+document.querySelectorAll('#tools .btn[data-zone]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('#tools .btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');currentTool=btn.dataset.zone;
+    if(currentTool!=='inspect')closeInsp();
+  });
+});
+
+map.on('click',()=>{if(currentTool==='inspect')closeInsp();});
+
+document.getElementById('playBtn').addEventListener('click',e=>{
+  paused=!paused;e.target.textContent=paused?'▶ Play':'⏸ Pause';
+  e.target.classList.toggle('active',!paused);lastTs=null;
+});
+document.getElementById('spdSlider').addEventListener('input',e=>{speed=+e.target.value;});
+
+// ═══════════════════════════════════════════════════════════════
+// NIGHT OVERLAY
+// ═══════════════════════════════════════════════════════════════
+const nightEl=document.getElementById('night');
+function updateNight(){
+  const b=(Math.cos((simTime-0.5)*2*Math.PI)+1)/2;
+  nightEl.style.background=`rgba(8,14,32,${(0.5*(1-b)).toFixed(3)})`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CLOCK
+// ═══════════════════════════════════════════════════════════════
+let simTime=0.3,speed=4,paused=true,lastTs=null;
+const BASE_SEC=60;
+
+function updateClock(){
+  const m=Math.floor(simTime*24*60);
+  document.getElementById('clkLbl').textContent=String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+  document.getElementById('dayLbl').textContent='Day '+day;
+}
+
+function tick(ts){
+  if(lastTs===null)lastTs=ts;
+  const dt=ts-lastTs;lastTs=ts;
+  if(!paused){simTime+=(dt/1000)/(BASE_SEC/speed);if(simTime>=1){simTime-=1;runDay();}}
+  updateClock();updateNight();drawAgents();
+  requestAnimationFrame(tick);
+}
+
+updateStats();
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
