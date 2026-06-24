@@ -11,7 +11,9 @@
 **Status:** ✅ Complete
 
 **The humans note**
-> *(Sunny — legg inn din norske kommentar her)*
+> I dag så fikk vi scannet inn brorparten av bygg o.l., samt veier fra LYB. Alt dette ligger nå klart (dog urensket) i .json-filer.
+>
+> Er fortsatt veldig fornøyd med hvordan dette går. Jeg tror at det som har gjort øvelsen her bedre enn de andre småprosjektene jeg har lagt ut er at vi har sett på både å bruke prosjektrammeverket som vi tidligere har etablert, samt at vi har vært flinke til å kartlegge brorparten av aktivitetene i prosjektet. Dette sier jo egentlig seg selv: Det er typisk forprosjektet i et prosjekt som gir deg best gevinst senere.
 
 **What happened**
 First Claude Code session. The goal was TASK-006a: evaluate whether the NP ArcGIS REST API could replace hand-tracing as the geodata method. It could not — the NP service is tiles-only and doesn't expose feature queries. We pivoted to OSM Overpass, confirmed 625 building footprints and 263 roads for the Sentrum area, fetched it all in one shot, converted Overpass JSON to GeoJSON, and baked it directly into a standalone verification page. No live API calls — open the file, see the data overlaid on the NP map tiles. TASK-006 is complete. OSM is the method.
