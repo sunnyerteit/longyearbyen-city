@@ -69,9 +69,23 @@
   - **Owner:** Sunny (play-test) + Claude (fix issues)
   - **Verification:** Sunny play-tests and confirms before sign-off
 
+- [ ] TASK-024 — Scale simulation values to lot area
+  - **Goal:** Inhabitants capacity, goods production rate, and inventory stock are calculated proportionally from the actual building polygon area, not hardcoded tier constants.
+  - **Context:** Currently `CAPACITY = {residential:[8,16,28], commercial:[16,30,50], industrial:[18,34,56]}` applies fixed values regardless of building size. Once real geodata is in (TASK-019), polygon area can be computed from coordinates. Large buildings should hold more residents/goods than small ones. Tier levels stay — area scales the base values within each tier.
+  - **Owner:** Claude
+  - **Dependencies:** TASK-019 (real polygon data), TASK-008 (stable economy baseline before changing constants)
+  - **Verification:** Sunny checks that large buildings have proportionally more capacity, and that the economy still runs stably after the change.
+
 ---
 
 ### Phase 2 — Beta
+
+- [ ] TASK-025 — Evaluate custom map renderer as Leaflet replacement
+  - **Goal:** Decision made on whether to build a custom canvas/WebGL renderer using our own GeoJSON as the base map, replacing Leaflet + NP WMTS tile streaming.
+  - **Context:** Leaflet streams NP Basiskart raster tiles on every session — bandwidth cost, visual overhead, external dependency. Once full geodata is in (TASK-019), we have everything needed to draw our own map: roads, buildings, land cover. A custom renderer could be lighter, fully styleable, and offline-capable. Could be a collaborative build (Claude + Sunny). Not urgent before full geodata is confirmed good.
+  - **Owner:** Sunny (decision) + Claude (prototype options)
+  - **Dependencies:** TASK-019 (full geodata needed before this is worth evaluating)
+  - **Verification:** Sunny decides: build custom renderer, keep Leaflet, or hybrid.
 
 - [ ] TASK-009 — Architecture refactor: impose clean module structure on test.html
   - **Goal:** test.html reorganised into World Config → Data Model → Road Network → Simulation Engine → Renderer → UI. No cross-section reach into internals.
@@ -173,7 +187,7 @@
 
 ---
 
-*Next available ID: TASK-024*
+*Next available ID: TASK-026*
 
 ---
 

@@ -4,6 +4,25 @@
 
 ---
 
+### 2026-06-24 — Geodata method found: OSM works, 625 buildings baked in
+
+**Project:** Longyearbyen City Builder
+**Type:** Session
+**Status:** ✅ Complete
+
+**The humans note**
+> *(Sunny — legg inn din norske kommentar her)*
+
+**What happened**
+First Claude Code session. The goal was TASK-006a: evaluate whether the NP ArcGIS REST API could replace hand-tracing as the geodata method. It could not — the NP service is tiles-only and doesn't expose feature queries. We pivoted to OSM Overpass, confirmed 625 building footprints and 263 roads for the Sentrum area, fetched it all in one shot, converted Overpass JSON to GeoJSON, and baked it directly into a standalone verification page. No live API calls — open the file, see the data overlaid on the NP map tiles. TASK-006 is complete. OSM is the method.
+
+Two new tasks added: TASK-024 (scale simulation capacity values to actual polygon area once real geodata is in) and TASK-025 (evaluate replacing Leaflet + NP tile streaming with a custom renderer built on our own GeoJSON — Sunny flagged this as a performance concern worth tracking).
+
+**The thinking behind it**
+The NP ArcGIS dead end was a useful failure — it took about twenty minutes to discover and rule out, and it pointed us directly at the FKB service layer names that confirmed OSM layer 28 = buildings and 37 = roads were exactly right. The live-fetch approach in the first version of the test page hit Overpass rate limits immediately. Sunny caught the flaw: fetch the data once, embed it, verify from a static file. That turned out to be the correct model for TASK-019 too — not a live API in the sim, just curated GeoJSON as a constant. The pipeline is now proven. Next session starts with either TASK-019 (full city import) or TASK-005 (road intersection fix).
+
+---
+
 ### 2026-06-22 — Project foundation complete, planning session done
 
 **Project:** Longyearbyen City Builder

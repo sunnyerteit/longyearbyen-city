@@ -4,15 +4,17 @@
 
 ---
 
-**Last updated:** 2026-06-22
+**Last updated:** 2026-06-24
 
 ## ⚠️ First thing next session
 
-- **Switching to Claude Code** — all future work done there, not Cowork
-- Delete root files manually: `test.html`, `draw.html`, `test.json.txt` (copies are in `phases/phase-0/`)
-- GitHub push still pending (Sunny) — parked, not blocking
-- TASKS.md fully restructured (2026-06-22) — TASK-001–004 replaced by TASK-019, new tasks TASK-018–023 added
-- Next unblocked tasks: TASK-006 (geodata method), TASK-005 (road intersection fix), TASK-007 (import workflow)
+- TASK-006 complete — OSM is the geodata method. Verification page at `phases/phase-1/api-test.html` (625 buildings, 263 roads, Sentrum bbox, data embedded).
+- TASK-019 is now unblocked — full city import (airport → Nybyen → Lia → Elvesletta), same fetch-once-embed pipeline
+- TASK-007 (incremental import) likely moot — TASK-019 will be a single clean replacement of GEOJSON, not incremental
+- TASK-025 added: evaluate custom map renderer as Leaflet replacement (Sunny's idea — performance concern)
+- TASK-024 added: scale simulation values to polygon area (depends on TASK-019 + TASK-008)
+- Raw fetch files in phases/phase-1/ (buildings-raw.json, roads-raw.json) can be deleted — not needed
+- Next unblocked tasks: TASK-019 (full city import) or TASK-005 (road intersection fix)
 
 ---
 

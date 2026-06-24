@@ -7,7 +7,7 @@
 | Risk ID | Description | Likelihood | Impact | Score | RAG | Mitigation | Status |
 |---|---|---|---|---|---|---|---|
 | RISK-001 | Single-file HTML hits size/performance limits as geodata grows | High | Med | 6 | 🔴 | Monitor file size; plan refactor to multi-file if needed before Beta | Open |
-| RISK-002 | Geodata sourcing bottleneck — hand-tracing all neighbourhoods is slow | High | Med | 6 | 🔴 | Evaluate automated/OSM extraction in Alpha; draw.html is fallback | Open |
+| RISK-002 | Geodata sourcing bottleneck — hand-tracing all neighbourhoods is slow | Low | Med | 2 | 🟢 | OSM Overpass confirmed working — 625 buildings + 263 roads fetched in one shot (2026-06-24). Fetch-once-embed pipeline proven. TASK-019 unblocked. | Mitigated |
 | RISK-003 | NP Basiskart tiles unavailable or URL changes | Low | High | 3 | 🟡 | OSM fallback already in place; tiles are a public service but not guaranteed | Open |
 | RISK-004 | Road routing graph incomplete — side roads disconnected from S1 | High | Med | 6 | 🔴 | Implement intersection detection or manual connection in Alpha (TASK-TBD) | Open |
 | RISK-005 | Scope creep into deep simulation features | Med | Med | 4 | 🟡 | Non-goals explicitly listed in charter; revisit per phase | Open |
