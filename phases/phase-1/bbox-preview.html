@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>TASK-019 — City bbox preview</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: monospace; background: #1a1a1a; color: #eee; }
+  #map { width: 100vw; height: 100vh; }
+  #legend {
+    position: absolute; top: 12px; right: 12px; z-index: 1000;
+    background: rgba(0,0,0,0.82); padding: 14px 16px; border-radius: 6px;
+    font-size: 13px; line-height: 1.9;
+  }
+  .dot { display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+  .orange { background: #ff8c00; }
+  .blue   { background: #3399ff; }
+  #legend h3 { font-size: 13px; margin-bottom: 8px; color: #aaa; font-weight: normal; text-transform: uppercase; letter-spacing: 0.05em; }
+  #coords { margin-top: 10px; color: #888; font-size: 11px; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="legend">
+  <h3>TASK-019 — bbox preview</h3>
+  <div><span class="dot orange"></span> Current (Sentrum only)</div>
+  <div><span class="dot blue"></span> Proposed (full city)</div>
+  <div id="coords">
+    Sentrum: 78.210,15.54 → 78.245,15.70<br>
+    Full city: 78.196,15.43 → 78.252,15.72
+  </div>
+</div>
+
+<script>
+const NP_TILES = 'https://geodata.npolar.no/arcgis/rest/services/Basisdata/NP_Basiskart_Svalbard_WMTS_25833/MapServer/tile/{z}/{y}/{x}';
+const OSM_TILES = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+const map = L.map('map').setView([78.228, 15.58], 12);
+
+L.tileLayer(OSM_TILES, { opacity: 0.35, attribution: '© OSM' }).addTo(map);
+L.tileLayer(NP_TILES, { maxNativeZoom: 17, maxZoom: 19, attribution: '© Kartverket/NP' }).addTo(map);
+
+// Current Sentrum bbox (what we already have data for)
+const sentrumBbox = [[78.210, 15.54], [78.245, 15.70]];
+L.rectangle(sentrumBbox, {
+  color: '#ff8c00', weight: 2, fillOpacity: 0.08, dashArray: '6 4'
+}).addTo(map).bindTooltip('Sentrum (fetched)', { permanent: false });
+
+// Proposed full-city bbox for TASK-019
+const fullCityBbox = [[78.196, 15.43], [78.252, 15.72]];
+L.rectangle(fullCityBbox, {
+  color: '#3399ff', weight: 2.5, fillOpacity: 0.06
+}).addTo(map).bindTooltip('Full city (proposed)', { permanent: false });
+
+// Neighbourhood labels
+const labels = [
+  { pos: [78.246, 15.465], name: '✈ Airport' },
+  { pos: [78.223, 15.635], name: 'Sentrum' },
+  { pos: [78.230, 15.625], name: 'Lia' },
+  { pos: [78.222, 15.665], name: 'Nybyen' },
+  { pos: [78.215, 15.605], name: 'Elvesletta' },
+];
+
+labels.forEach(({ pos, name }) => {
+  L.marker(pos, {
+    icon: L.divIcon({
+      className: '',
+      html: `<div style="background:rgba(0,0,0,0.6);color:#fff;padding:2px 6px;border-radius:3px;font:12px monospace;white-space:nowrap">${name}</div>`,
+      iconAnchor: [0, 0]
+    })
+  }).addTo(map);
+});
+
+map.fitBounds(fullCityBbox, { padding: [40, 40] });
+</script>
+</body>
+</html>

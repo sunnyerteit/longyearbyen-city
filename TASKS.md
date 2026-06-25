@@ -18,34 +18,13 @@
 
 #### Geodata
 
-- [ ] TASK-006 — Evaluate and decide geodata sourcing method
-  - **Goal:** Decision made on whether NP ArcGIS API, OSM Overpass, or draw.html hand-tracing is the method for all remaining buildings and roads. Replaces TASK-001–004 if API works.
-  - **Context:** NP ArcGIS REST API (layers 28 = buildings, 37 = roads) confirmed live and returning GeoJSON. OSM Overpass timed out previously. Hand-tracing in draw.html is fallback but draw.html needs fixes (mouse press unreliable — needs hotkey or better input handling).
-  - **Subtasks:**
-    - [ ] 006a — Claude builds browser-side test page fetching Sentrum area from NP API; checks coverage and coordinate accuracy
-    - [ ] 006b — Sunny visually verifies output against map: do roads connect, do building footprints match reality?
-    - [ ] 006c — Sunny approves method (API / hand-trace / hybrid)
-  - **Owner:** Claude (006a) → Sunny (006b, 006c)
-  - **Verification:** Sunny sign-off required before any geodata import begins
+- [x] ~~TASK-006~~ — Completed 2026-06-24. OSM Overpass confirmed.
 
-- [ ] TASK-019 — Extract and import all central Longyearbyen geodata
-  - **Goal:** All buildings and roads for the full simulation area (Sentrum, Lia, Nybyen, Elvesletta) imported into test.html in one pass.
-  - **Context:** Replaces TASK-001–004. Method depends on TASK-006 decision. If API: Claude extracts via NP ArcGIS, converts to project GeoJSON format, imports. If hand-trace: Sunny draws in draw.html, Claude imports. We do not split by neighbourhood — we care about the full map area.
-  - **Subtasks:**
-    - [ ] 019a — Extract / draw all buildings and roads
-    - [ ] 019b — Import into test.html
-    - [ ] 019c — Sunny visual check: roads hang together, lots match reality on the map
-  - **Owner:** Claude (019a, 019b) → Sunny (019c)
-  - **Dependencies:** TASK-006 (method decided), TASK-007 (import workflow)
-  - **Verification:** Sunny visual check required before moving to simulation tasks
+- [x] ~~TASK-019~~ — Completed 2026-06-25. 777 buildings + 278 roads for full city (bbox 78.196,15.43→78.252,15.72) embedded in sim. Sunny visual check passed.
 
 #### Road Network & Agent Movement
 
-- [ ] TASK-007 — GeoJSON import workflow: support incremental append
-  - **Goal:** New feature arrays can be appended to the GEOJSON constant without rewriting the whole block.
-  - **Context:** Currently the entire GEOJSON is one embedded constant. Needed before TASK-019.
-  - **Owner:** Claude
-  - **Dependencies:** None — run before TASK-019
+- [x] ~~TASK-007~~ — Moot. TASK-019 replaced the entire GEOJSON block in one pass; incremental append never needed.
 
 - [ ] TASK-005 — Fix road intersection detection: connect side roads to S1
   - **Goal:** Agents can route from any building onto any road, not just S1.
@@ -184,6 +163,15 @@
 
 - [x] TASK-026 — Write CLAUDE.md for project root
   - Completed: 2026-06-25. Quick-start guide for Claude: architecture decisions, geodata pipeline, key constants, current state, working style. Lives at project root.
+
+- [x] TASK-019 — Extract and import all central Longyearbyen geodata
+  - Completed: 2026-06-25. 777 buildings + 278 roads, full city bbox (78.196,15.43→78.252,15.72), OSM Overpass, embedded in sim. Sunny visual check passed.
+
+- [x] TASK-007 — GeoJSON incremental import workflow
+  - Completed (moot): 2026-06-25. TASK-019 replaced the whole GEOJSON block in one pass — incremental append never needed.
+
+- [x] TASK-006 — Evaluate and decide geodata sourcing method
+  - Completed: 2026-06-24. OSM Overpass confirmed. NP ArcGIS tiles-only. Fetch-once-embed pattern proven.
 
 - [x] TASK-000 — Project foundation: map tiles, drawing tool, GeoJSON pipeline, base simulation
   - Completed: 2026-06-21. NP Basiskart tiles, OSM fallback, Leaflet map, draw.html tool, first GeoJSON import (airport corridor + 37 buildings), full simulation loop running.
