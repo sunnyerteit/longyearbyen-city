@@ -4,6 +4,27 @@
 
 ---
 
+### 2026-06-25 — Full city imported, CLAUDE.md added, road pruning started
+
+**Project:** Longyearbyen City Builder
+**Type:** Session
+**Status:** 🔄 Partial (road pruning continues next session)
+
+**The humans note**
+> N/A
+
+**What happened**
+Three things this session. First, wrote `CLAUDE.md` at the project root — a quick-start guide for Claude covering architecture decisions, geodata pipeline, working style, and current sim state. Replaces the need to read six files at the start of every session.
+
+Second, completed TASK-019: full city geodata imported into the sim. OSM Overpass fetch for bbox 78.196,15.43→78.252,15.72 — 777 buildings and 278 roads covering all central neighbourhoods (airport corridor, Sentrum, Lia, Nybyen, Elvesletta). Road IDs are now R001–R278, building IDs B001–B777. Replaces the 37-building hand-traced prototype from Phase 0.
+
+Third, started road pruning. Sunny's direction: roads not connected to the main network should be deleted rather than patched. Built a connectivity analyser (5m snap tolerance, BFS from root road R255 at the airport): 267 roads connected, 11 to delete. Preview page built (`road-connectivity-preview.html`, blue/red). Sunny approved the cut. Then Sunny also flagged roads that don't lead to any buildings — those should go too. That filter (100m building proximity threshold) is built next session before anything is applied to the sim.
+
+**The thinking behind it**
+The pruning approach (delete rather than connect) is cleaner than the original TASK-005 plan to detect and stitch intersections. If a road doesn't serve buildings and doesn't connect to the network, it's noise. The two-filter preview-before-apply pattern means Sunny sees the cut before it's permanent — safe to tune the threshold if needed.
+
+---
+
 ### 2026-06-24 — Geodata method found: OSM works, 625 buildings baked in
 
 **Project:** Longyearbyen City Builder
