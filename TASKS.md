@@ -182,12 +182,15 @@
 
 ## ✅ Done
 
+- [x] TASK-026 — Write CLAUDE.md for project root
+  - Completed: 2026-06-25. Quick-start guide for Claude: architecture decisions, geodata pipeline, key constants, current state, working style. Lives at project root.
+
 - [x] TASK-000 — Project foundation: map tiles, drawing tool, GeoJSON pipeline, base simulation
   - Completed: 2026-06-21. NP Basiskart tiles, OSM fallback, Leaflet map, draw.html tool, first GeoJSON import (airport corridor + 37 buildings), full simulation loop running.
 
 ---
 
-*Next available ID: TASK-026*
+*Next available ID: TASK-027*
 
 ---
 
