@@ -4,21 +4,25 @@
 
 ---
 
-**Last updated:** 2026-06-25
+**Last updated:** 2026-06-26
 
-## ⚠️ First thing next session
+## What's settled
 
-**Road pruning — mid-task, do this before anything else:**
+**Geometry is finalised.** `phases/phase-1/longyearbyen-final.geojson` is the authoritative source going forward.
 
-1. TASK-019 complete — 777 buildings + 278 roads imported into `phases/phase-0/longyearbyen-sim.html`. Full city bbox 78.196,15.43→78.252,15.72. Road IDs are now R001–R278 (not S-prefixed).
+- 245 roads (from original 278 OSM roads after: Filter 1 disconnected, Filter 2 no-buildings, R100 force-removed, R115 split at T-junction with R121, 9 dead-end tails trimmed)
+- 741 buildings (from 777 — 36 removed as orphans with no kept road within 100m, includes Hiorthamn area)
+- Phase-0 sim is untouched and frozen.
 
-2. Road pruning is half-done. Two filters to apply (in order):
-   - **Filter 1 — disconnected:** already analysed. 5m snap, BFS from root road R255 (airport). 267 connected, 11 disconnected. Preview at `phases/phase-1/road-connectivity-preview.html` (blue=keep, red=delete).
-   - **Filter 2 — no buildings nearby:** NOT YET DONE. Plan: from the 267 kept roads, remove any road where no building centroid is within 100m of any road node. Show as orange in an updated preview before applying. Threshold may need tuning.
+**Next task: build `phases/phase-1/longyearbyen-sim.html`**
+- Copy phase-0 sim as the base
+- Replace `const GEOJSON` with the content of `longyearbyen-final.geojson`
+- Road routing will need T-junction support (TASK-005): currently nodes are sampled every ~30m along each road independently — junctions where R115b and R121 share a coordinate need to be detected so agents can cross between them. Approach: when building the road graph, check if any sampled node on road A is within SNAP_M of any node on road B (not just endpoints).
 
-3. Once Sunny approves the combined preview, apply both filters to the GEOJSON in the sim (permanently strip removed roads from `const GEOJSON`).
-
-4. TASK-005 (road intersection fix) is effectively being replaced by this pruning approach — roads that don't connect get deleted rather than patched. Update TASKS.md accordingly after pruning is done.
+**Key geometry facts:**
+- R115 was split: R115 first half dropped (no buildings), R115b kept (coords[5..21], shares first coord with R121[0])
+- R100 removed by Sunny's request (long road to nowhere, western edge of bbox)
+- Hiorthamn area buildings and roads removed cleanly via filters
 
 ---
 
@@ -50,14 +54,13 @@
 - `CAPACITY = { residential:[8,16,28], commercial:[16,30,50], industrial:[18,34,56] }`
 - `UPGRADE_THRESHOLD=70, DOWNGRADE_THRESHOLD=30, STREAK_NEEDED=4`
 
-**Current GeoJSON coverage (as of 2026-06-25):**
-- 278 roads: R001–R278, full city OSM import
-- 777 buildings: B001–B777, full city OSM import
-- Coverage: full city bbox 78.196,15.43→78.252,15.72 (airport + Sentrum + Lia + Nybyen + Elvesletta)
-- Roads not yet pruned — disconnected + building-less roads still in the data
+**Canonical geometry (as of 2026-06-26):**
+- Source: `phases/phase-1/longyearbyen-final.geojson` — 245 roads + 741 buildings
+- Phase-0 sim frozen at original 278 roads / 777 buildings (unmodified, historical record)
+- Phase-1 sim not yet created — next task
 
 **Known issues / deferred:**
-- Road pruning not yet applied to sim (in progress — see First thing next session)
+- T-junction routing: road graph builder needs to detect shared interior nodes (not just endpoints) so agents can cross between e.g. R115b and R121
 - Economy constants need tuning (Phase 2)
 - Leaflet may be replaced with custom renderer (TASK-025, Phase 2)
 
@@ -73,7 +76,7 @@
 
 ## What's Next
 
-- [ ] Finish road pruning (Filter 2: remove roads with no buildings nearby, then apply both filters to sim)
+- [ ] Create `phases/phase-1/longyearbyen-sim.html` — copy phase-0 sim, embed longyearbyen-final.geojson, fix T-junction routing (TASK-005)
 - [ ] TASK-008: Generate and verify economy loop with mixed zones
 - [ ] TASK-020: Building lot access paths (agents walk to building wall via road)
 - [ ] TASK-024: Scale simulation values to polygon area (depends on TASK-008)
