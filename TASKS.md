@@ -42,6 +42,13 @@
   - **Dependencies:** TASK-027
   - **Verification:** Confirm agents can route from a building on R121 through to the airport via the junction with R115b.
 
+- [ ] TASK-028 — Fix agent pathing from airport to lots
+  - **Goal:** Agents route correctly from the airport through the full road network to their destination lot. Any building across all 245 roads is reachable.
+  - **Context:** Phase-0 sim had 6 roads — agents effectively walked S1 and snapped to the nearest lot. With 245 roads and 741 buildings spread across the whole city, routing must actually work end-to-end. Suspect issues: access node lookup (which road node is "closest" to a lot) may not scale well with this many features; some lots may be unreachable if their nearest road node is on a disconnected subgraph. This task is the practical routing smoke test for the phase-1 sim.
+  - **Owner:** Claude
+  - **Dependencies:** TASK-027 (phase-1 sim), TASK-005 (T-junctions resolved)
+  - **Verification:** Zone buildings at the far eastern and western edges of the city. Confirm agents arrive and route visibly through multiple road segments to reach them. Sunny visual check.
+
 - [ ] TASK-020 — Implement building lot access paths (driveway connections)
   - **Goal:** Each building has a visible or invisible path connecting the nearest road to the nearest wall of the lot. Agents walk this path rather than cutting across open ground to the lot centre.
   - **Context:** Currently agents walk from road to lot centre regardless of geometry. This looks wrong and breaks immersion. Path can be invisible (routing only) or visible (rendered as a thin line).

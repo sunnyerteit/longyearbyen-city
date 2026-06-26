@@ -4,7 +4,7 @@
 
 ---
 
-**Last updated:** 2026-06-26
+**Last updated:** 2026-06-26 (end of session)
 
 ## What's settled
 
@@ -74,11 +74,12 @@
 - Internal section order: World Config → Data Model → Road Network → Simulation Engine → Renderer → UI
 - Bake data in — no live API calls in sim or verification pages
 
-## What's Next
+## What's Next (start here next session)
 
-- [ ] Create `phases/phase-1/longyearbyen-sim.html` — copy phase-0 sim, embed longyearbyen-final.geojson, fix T-junction routing (TASK-005)
-- [ ] TASK-008: Generate and verify economy loop with mixed zones
-- [ ] TASK-020: Building lot access paths (agents walk to building wall via road)
-- [ ] TASK-024: Scale simulation values to polygon area (depends on TASK-008)
-- [ ] TASK-018: Write Phase 0+1 spec snapshot (after Phase 1 complete)
-- [ ] Return to DECISION-001 (money) and DECISION-002 (power) before TASK-011/012
+- [ ] TASK-005: Open phase-1 sim in browser, confirm agents route via T-junctions (R115b↔R121). T-junction routing should work automatically via coordinate key matching — verify or fix.
+- [ ] TASK-028: Zone buildings at city edges, confirm agents route across multiple roads to reach them.
+- [ ] TASK-008: Zone a full mix of R/C/I, run 10+ days, verify economy loop is stable.
+- [ ] TASK-020: Lot access paths (agents walk to building wall, not lot centre).
+- [ ] TASK-024: Scale capacity to polygon area (after economy baseline confirmed).
+- [ ] TASK-025: Discuss custom background map — drop Leaflet + NP tiles.
+- [ ] TASK-018: Phase 1 spec snapshot (written when all above are done).

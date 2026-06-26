@@ -4,6 +4,29 @@
 
 ---
 
+### 2026-06-26 — Road pruning complete, geometry finalised, Phase 1 sim created
+
+**Project:** Longyearbyen City Builder
+**Type:** Session
+**Status:** ✅ Complete
+
+**The humans note**
+> Dette var en litt rar runde med Claude fordi vi hadde klare mål med runden vår, til tross for det så endte Claude opp med å gå mye inn og ut av PowerShell. Det ble lite effektivt. Mulig vi ser på hvordan unngå dette i fremtida.
+
+**What happened**
+Finished the road pruning work started last session and created the Phase 1 sim.
+
+Road pruning: applied both filters to the full 278-road OSM dataset — Filter 1 (BFS connectivity from airport, 5m snap) and Filter 2 (no building within 100m of any road node). R100 force-removed on Sunny's request. R115 was split at its T-junction with R121 (they shared an interior coordinate, which the original endpoint-only analysis had missed). Dead-end road tails trimmed beyond their last nearby building. 36 orphan buildings removed (including the Hiorthamn abandoned area). Result: 245 roads and 741 buildings saved to `phases/phase-1/longyearbyen-final.geojson` — the canonical geometry for Phase 1 onwards.
+
+Phase 0 sim left completely untouched per Sunny's direction. `phases/phase-1/longyearbyen-sim.html` created: copy of phase-0 sim with the new clean GEOJSON embedded and the road/building detection updated from a `mode` property to id-prefix matching (R* = road, B* = building). R001 is the airport road and sits correctly at rawRoads[0].
+
+Task board updated: TASK-027 (sim port) done, TASK-028 (agent pathing smoke test) and TASK-025 (custom background map, moved to Phase 1) added.
+
+**The thinking behind it**
+Pruning by deletion rather than patching is the right call — the roads that got cut weren't serving anything, and the building-proximity filter is a cleaner signal than trying to guess which disconnected roads matter. The T-junction find (R115b/R121 sharing a coordinate) was a useful edge case: the existing routing code handles it correctly via key-based node deduplication, so no code change was needed there. The heavy PowerShell usage this session was a consequence of file size — the GeoJSON lines run to 350KB+, past what the standard file tools can reach, so every transform had to go through shell. Something to address when we look at the custom renderer (TASK-025).
+
+---
+
 ### 2026-06-25 — Full city imported, CLAUDE.md added, road pruning started
 
 **Project:** Longyearbyen City Builder
