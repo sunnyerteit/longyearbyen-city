@@ -22,16 +22,25 @@
 
 - [x] ~~TASK-019~~ — Completed 2026-06-25. 777 buildings + 278 roads for full city (bbox 78.196,15.43→78.252,15.72) embedded in sim. Sunny visual check passed.
 
+#### Simulation Port
+
+- [ ] TASK-027 — Port simulation from Phase 0 to Phase 1
+  - **Goal:** A working `phases/phase-1/longyearbyen-sim.html` with the full Phase 1 geodata and the Phase 0 simulation engine. Agents move, economy ticks, zoning works.
+  - **Context:** Phase 0 sim is frozen. Phase 1 sim starts as a copy of it with `const GEOJSON` replaced by the contents of `longyearbyen-final.geojson` (245 roads, 741 buildings). T-junction routing must be fixed as part of this (see TASK-005 — absorbing it): the road graph builder currently only connects roads at endpoints; it needs to also detect shared interior nodes (e.g. R115b and R121 share a coordinate mid-road). Zoning is reset — needs initial zoning pass before economy can be verified.
+  - **Owner:** Claude
+  - **Dependencies:** `phases/phase-1/longyearbyen-final.geojson` (done)
+  - **Verification:** Open sim in browser, zone a mix of R/C/I buildings across the city, watch agents route from the airport across multiple roads. Sunny confirms it runs without errors.
+
 #### Road Network & Agent Movement
 
 - [x] ~~TASK-007~~ — Moot. TASK-019 replaced the entire GEOJSON block in one pass; incremental append never needed.
 
-- [ ] TASK-005 — Fix road intersection detection: connect side roads to S1
-  - **Goal:** Agents can route from any building onto any road, not just S1.
-  - **Context:** S2, S3, S28, S38, S39 are isolated from S1 in the routing graph. Need to snap endpoints to nearest S1 node or detect geometric intersections and merge. RISK-004.
+- [ ] TASK-005 — Fix road intersection detection (T-junctions)
+  - **Goal:** Agents can route across T-junctions where a road branches off an interior node of another road (not just at endpoints).
+  - **Context:** Absorbed into TASK-027. R115b and R121 share coord [15.7090165, 78.2174097] as an interior node on R115b and the first endpoint of R121. Original S1/S2/S3 issue is resolved by the pruning — disconnected roads were deleted rather than patched.
   - **Owner:** Claude
-  - **Dependencies:** None — unblocked now
-  - **Verification:** Visual check — confirm all roads connect back to the airport (trace a path from any building to S1 terminal). Sunny reviews before sign-off.
+  - **Dependencies:** TASK-027
+  - **Verification:** Confirm agents can route from a building on R121 through to the airport via the junction with R115b.
 
 - [ ] TASK-020 — Implement building lot access paths (driveway connections)
   - **Goal:** Each building has a visible or invisible path connecting the nearest road to the nearest wall of the lot. Agents walk this path rather than cutting across open ground to the lot centre.
@@ -55,16 +64,16 @@
   - **Dependencies:** TASK-019 (real polygon data), TASK-008 (stable economy baseline before changing constants)
   - **Verification:** Sunny checks that large buildings have proportionally more capacity, and that the economy still runs stably after the change.
 
+- [ ] TASK-025 — Custom background map: discuss and implement
+  - **Goal:** Replace Leaflet + NP WMTS tile streaming with a custom-drawn background map using our own GeoJSON. No external tile dependency, fully styleable, offline-capable.
+  - **Context:** Leaflet streams NP Basiskart raster tiles on every session — bandwidth cost, visual noise, external dependency. We now have 245 roads and 741 building footprints — enough to draw a clean, stylised base map ourselves (canvas or SVG). Discuss approach with Sunny first (canvas 2D / WebGL / SVG overlay), then implement. Could also be a phased drop-in: custom map underneath, remove Leaflet last.
+  - **Owner:** Sunny (approach decision) + Claude (implement)
+  - **Dependencies:** TASK-027 (phase-1 sim exists to build on top of)
+  - **Verification:** Sunny confirms the map looks good and the sim runs without Leaflet/NP tile calls.
+
 ---
 
 ### Phase 2 — Beta
-
-- [ ] TASK-025 — Evaluate custom map renderer as Leaflet replacement
-  - **Goal:** Decision made on whether to build a custom canvas/WebGL renderer using our own GeoJSON as the base map, replacing Leaflet + NP WMTS tile streaming.
-  - **Context:** Leaflet streams NP Basiskart raster tiles on every session — bandwidth cost, visual overhead, external dependency. Once full geodata is in (TASK-019), we have everything needed to draw our own map: roads, buildings, land cover. A custom renderer could be lighter, fully styleable, and offline-capable. Could be a collaborative build (Claude + Sunny). Not urgent before full geodata is confirmed good.
-  - **Owner:** Sunny (decision) + Claude (prototype options)
-  - **Dependencies:** TASK-019 (full geodata needed before this is worth evaluating)
-  - **Verification:** Sunny decides: build custom renderer, keep Leaflet, or hybrid.
 
 - [ ] TASK-009 — Architecture refactor: impose clean module structure on test.html
   - **Goal:** test.html reorganised into World Config → Data Model → Road Network → Simulation Engine → Renderer → UI. No cross-section reach into internals.
@@ -178,7 +187,7 @@
 
 ---
 
-*Next available ID: TASK-027*
+*Next available ID: TASK-028*
 
 ---
 
